@@ -1,0 +1,33 @@
+apiVersion: skaffold/v2beta12
+kind: Config
+metadata:
+  name: ip-blocker
+profiles:
+  - name: dev
+    activation:
+      - command: dev
+      - kubeContext: kind-sft-dev
+    build:
+      local:
+        push: false
+      artifacts:
+        - image: softonic/ip-blocker
+          context: .
+          docker:
+            # Used in Docker file for development build.
+            buildArgs:
+              version: 0.0.1-dev
+    deploy:
+      kubeContext: kind-sft-dev
+      statusCheckDeadlineSeconds: 60
+      helm:
+        releases:
+          - name: ip-blocker
+            chartPath: ./charts/ip-blocker
+            valuesFiles:
+              - ./charts/ip-blocker/values.yaml
+            recreatePods: false
+            createNamespace: true
+            wait: false
+            artifactOverrides:
+              imageFullnameOverride: softonic/ip-blocker
