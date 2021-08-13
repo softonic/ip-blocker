@@ -2,12 +2,13 @@ package app
 
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	_ "fmt"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -22,19 +23,17 @@ var (
 	stdlog, errlog *log.Logger
 	r              map[string]interface{}
 	wg             sync.WaitGroup
+	bi			   []Bot
 )
 
 // App : Basic struct
 type App struct {
 	GCPConnection
-	ElasticSearchConn
-	Bot				[]Bot
+	ElasticSearchClient *elasticsearch.Client
 }
 
 
 type GCPConnection struct {}
-
-type ElasticSearchConn struct {}
 
 type Bot struct {
 	ip string
@@ -43,28 +42,27 @@ type Bot struct {
 	blocked bool
 }
 
+
 func NewBot() *Bot {
 	return &Bot{}
 }
 
 func NewApp() *App {
-	bots := make([]Bot,10)
 
 	return &App{
-		Bot: bots,
-		ElasticSearchConn: ElasticSearchConn{},
+		ElasticSearchClient: &elasticsearch.Client{},
 		GCPConnection: GCPConnection{},
 	}
 }
 
-func (a *App) ElasticSearchInit(address string, username string, password string) ( *elasticsearch.Client, error ) {
+func (a *App) ElasticSearchInit(address string, username string, password string) ( error ) {
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{
 			"https://host.docker.internal:9200",		// Remember pass this to Env Variables
 		},
-		Username: "elastic",
-		Password: "",						            // Remember to pass this to secrets and not commit this to the public repo
+		Username: "",
+		Password: "",						            // Remember to pass this to secrets and not commit this to the repo
 		//CACert:   cert,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 10,
@@ -82,21 +80,28 @@ func (a *App) ElasticSearchInit(address string, username string, password string
 	}
 	log.Println(elasticsearch.Version)
 
-	return es,err
+	a.ElasticSearchClient = es
+
+	return err
 
 }
 
 
-func (a *App) ElasticSearchSearch(es *elasticsearch.Client) ( error ) {
+func (a *App) ElasticSearchSearch(listen chan []Bot) ( error ) {
 
-	queryString := `{
+
+	es := a.ElasticSearchClient
+
+	namespace := "istio-system"
+
+	queryString := []byte(fmt.Sprintf(`{
   "query": {
     "bool": {
       "filter": [
           {
           "term": {
             "kubernetes.namespace": {
-              "value": "istio-system"
+              "value": "%s"
             }
           }
         },
@@ -117,19 +122,17 @@ func (a *App) ElasticSearchSearch(es *elasticsearch.Client) ( error ) {
       ]
     }
   }
-}`
+}`,namespace))
 
 	now := time.Now()
 	secs := now.Unix()
 
-	//var bots []Bot
-	botMap := make(map[string]int)
-	var b strings.Builder
-	//var res *esapi.Response
-	b.WriteString(queryString)
-	read := strings.NewReader(b.String())
 
-	suffix := fmt.Sprintf("%d.%02d.%02d\n",
+	botMap := make(map[string]int)
+
+	read := bytes.NewReader(queryString)
+
+	suffix := fmt.Sprintf("%d.%02d.%02d",
 		now.Year(), now.Month(), now.Day())
 
 	index := "istio-system-istio-system-" + suffix
@@ -141,14 +144,14 @@ func (a *App) ElasticSearchSearch(es *elasticsearch.Client) ( error ) {
 		es.Search.WithBody(read),
 		es.Search.WithTrackTotalHits(true),
 		es.Search.WithPretty(),
-		es.Search.WithSize(200),
+		es.Search.WithSize(100),
 	)
 	if err != nil {
 		log.Printf("error getting response: %s", err)
 		log.Fatalf("Error getting response: %s", err)
 	}
 
-	//defer res.Body.Close()
+	defer res.Body.Close()
 
 	if res.IsError() {
 		var e map[string]interface{}
@@ -167,20 +170,15 @@ func (a *App) ElasticSearchSearch(es *elasticsearch.Client) ( error ) {
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
 		log.Fatalf("Error parsing the response body: %s", err)
 	}
-	// Print the response status, number of results, and request duration.
 	log.Printf(
 		"[%s] %d hits; took: %dms",
 		res.Status(),
 		int(r["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"].(float64)),
 		int(r["took"].(float64)),
 	)
-	// Print the IP from _source for each hit.
-	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		//log.Printf(" * ID=%s, %s", hit.(map[string]interface{})["_id"], hit.(map[string]interface{})["_source"])
-		//log.Printf("IP: %s", hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"])
-		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"].(string)
-		//log.Printf("IP: %s", ips)
 
+	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
+		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"].(string)
 		botMap[ips] ++
 	}
 
@@ -190,14 +188,11 @@ func (a *App) ElasticSearchSearch(es *elasticsearch.Client) ( error ) {
 			count:             k,
 			lastReadTimestamp: secs,
 		}
-		a.Bot = append(a.Bot, bot)
+		bi = append(bi, bot)
 	}
 
-	log.Printf("Bots: %+v\n", a.Bot)
-	log.Println(strings.Repeat("=", 37))
 
-	res.Body.Close()
-	log.Println("closing conn")
+	listen <- bi
 
 	return nil
 

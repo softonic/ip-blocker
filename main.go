@@ -19,14 +19,16 @@ var (
 	stdlog, errlog *log.Logger
 	r              map[string]interface{}
 	wg             sync.WaitGroup
+	bi			   []app.Bot
+	application	   *app.App
 )
+
+
 
 // Service has embedded daemon
 type Service struct {
-	listen chan string
+	timeout time.Duration
 }
-
-
 
 type ArmorRules struct {
 	CreationTimestamp string `json:"creationTimestamp"`
@@ -51,18 +53,18 @@ type ArmorRules struct {
 	SelfLink string `json:"selfLink"`
 }
 
-
+/*
 func NewService() *Service {
 	listen := make(chan string)
 	return &Service{
 		listen: listen,
 	}
 
-}
+}*/
 
 
 // Manage by daemon commands or run the daemon
-func (service *Service) Manage() (string, error) {
+func (service *Service) Manage(listen chan []app.Bot) (string, error) {
 
 	// Do something, call your goroutines, etc
 
@@ -72,15 +74,11 @@ func (service *Service) Manage() (string, error) {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 
-	go printInfinite(service.listen)
+	go doSearch(listen)
 
-	// set up channel on which to send accepted connections
-
-	// loop work cycle with accept connections or interrupt
-	// by system signal
 	for {
 		select {
-		case n := <-service.listen:
+		case n := <-listen:
 			fmt.Println(n)
 		case killSignal := <-interrupt:
 			stdlog.Println("Got signal:", killSignal)
@@ -96,11 +94,14 @@ func (service *Service) Manage() (string, error) {
 	return "", nil
 }
 
-func printInfinite(ch chan string) {
+func doSearch(listen chan []app.Bot) {
 	for {
-		time.Sleep(time.Millisecond * 400000)
-		ch <- fmt.Sprintf("hello")
+		time.Sleep(time.Millisecond * 50000)
+
 		// we can call here ES connection and queries
+
+		application.ElasticSearchSearch(listen)
+
 	}
 }
 
@@ -113,33 +114,25 @@ func init() {
 func main() {
 
 
-	application := app.NewApp()
+	application = app.NewApp()
 
 	address := "https://host.docker.internal:9200"
 
 	username := "elastic"
 	password := ""
 
-	es, err := application.ElasticSearchInit(address, username, password)
+	err := application.ElasticSearchInit(address, username, password)
 	if err != nil {
 		errlog.Println("\nError search: ", err)
 		os.Exit(1)
 	}
 
+	listen := make(chan []app.Bot)
 
-	err = application.ElasticSearchSearch(es)
-	if err != nil {
-		errlog.Println("\nError search: ", err)
-		os.Exit(1)
-	}
+	service := Service{}
 
-
-	//cert, _ := ioutil.ReadFile("/tmp/cacert")
-
-
-	service := NewService()
-	//service := &Service{srv}
-	status, err := service.Manage()
+	//go application.ElasticSearchSearch(listen)
+	status, err := service.Manage(listen)
 	if err != nil {
 		errlog.Println(status, "\nError: ", err)
 		os.Exit(1)
