@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
 	app "github.com/softonic/ip-blocker/app"
 )
 
@@ -19,38 +20,13 @@ var (
 	stdlog, errlog *log.Logger
 	r              map[string]interface{}
 	wg             sync.WaitGroup
-	bi			   []app.Bot
-	application	   *app.App
+	bi             []app.Bot
+	application    *app.App
 )
-
-
 
 // Service has embedded daemon
 type Service struct {
 	timeout time.Duration
-}
-
-type ArmorRules struct {
-	CreationTimestamp string `json:"creationTimestamp"`
-	Description       string `json:"description"`
-	Fingerprint       string `json:"fingerprint"`
-	ID                string `json:"id"`
-	Kind              string `json:"kind"`
-	Name              string `json:"name"`
-	Rules             []struct {
-		Action      string `json:"action"`
-		Description string `json:"description"`
-		Kind        string `json:"kind"`
-		Match       struct {
-			Config struct {
-				SrcIPRanges []string `json:"srcIpRanges"`
-			} `json:"config"`
-			VersionedExpr string `json:"versionedExpr"`
-		} `json:"match"`
-		Preview  bool `json:"preview"`
-		Priority int  `json:"priority"`
-	} `json:"rules"`
-	SelfLink string `json:"selfLink"`
 }
 
 /*
@@ -62,9 +38,8 @@ func NewService() *Service {
 
 }*/
 
-
 // Manage by daemon commands or run the daemon
-func (service *Service) Manage(listen chan []app.Bot) (string, error) {
+func (service *Service) Manage(listen chan []app.Bot, ips []string, lastPriority int32) (string, error) {
 
 	// Do something, call your goroutines, etc
 
@@ -79,6 +54,8 @@ func (service *Service) Manage(listen chan []app.Bot) (string, error) {
 	for {
 		select {
 		case n := <-listen:
+			fmt.Println(app.CompareBlockedIps(n, ips))
+			fmt.Println(app.BlockedIPs(lastPriority))
 			fmt.Println(n)
 		case killSignal := <-interrupt:
 			stdlog.Println("Got signal:", killSignal)
@@ -96,7 +73,7 @@ func (service *Service) Manage(listen chan []app.Bot) (string, error) {
 
 func doSearch(listen chan []app.Bot) {
 	for {
-		time.Sleep(time.Millisecond * 50000)
+		time.Sleep(time.Millisecond * 300000)
 
 		// we can call here ES connection and queries
 
@@ -113,13 +90,12 @@ func init() {
 
 func main() {
 
-
 	application = app.NewApp()
 
 	address := "https://host.docker.internal:9200"
 
 	username := "elastic"
-	password := ""
+	password := "xxxx"
 
 	err := application.ElasticSearchInit(address, username, password)
 	if err != nil {
@@ -127,12 +103,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	ips, lastPriority := app.ConnectGCP()
+
 	listen := make(chan []app.Bot)
 
 	service := Service{}
 
 	//go application.ElasticSearchSearch(listen)
-	status, err := service.Manage(listen)
+	status, err := service.Manage(listen, ips, lastPriority)
 	if err != nil {
 		errlog.Println(status, "\nError: ", err)
 		os.Exit(1)

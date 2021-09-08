@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.14 as builder
+FROM golang:1.15 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -18,9 +18,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o ip-block
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM golang:1.14-buster
+FROM golang:1.15-buster
 WORKDIR /
 #COPY cacert /tmp
+#COPY kubertonic-ip-blocker.json /tmp
 COPY --from=builder /workspace/ip-blocker .
 USER root:root
 

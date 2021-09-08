@@ -1,6 +1,5 @@
 package app
 
-
 import (
 	"bytes"
 	"crypto/tls"
@@ -13,17 +12,15 @@ import (
 	"time"
 
 	//"sync"
-	"github.com/elastic/go-elasticsearch/v7"
 	"net/http"
 
-
+	"github.com/elastic/go-elasticsearch/v7"
 )
 
 var (
 	stdlog, errlog *log.Logger
 	r              map[string]interface{}
 	wg             sync.WaitGroup
-	bi			   []Bot
 )
 
 // App : Basic struct
@@ -32,16 +29,14 @@ type App struct {
 	ElasticSearchClient *elasticsearch.Client
 }
 
-
-type GCPConnection struct {}
+type GCPConnection struct{}
 
 type Bot struct {
-	ip string
-	count int
+	ip                string
+	count             int
 	lastReadTimestamp int64
-	blocked bool
+	blocked           bool
 }
-
 
 func NewBot() *Bot {
 	return &Bot{}
@@ -51,18 +46,18 @@ func NewApp() *App {
 
 	return &App{
 		ElasticSearchClient: &elasticsearch.Client{},
-		GCPConnection: GCPConnection{},
+		GCPConnection:       GCPConnection{},
 	}
 }
 
-func (a *App) ElasticSearchInit(address string, username string, password string) ( error ) {
+func (a *App) ElasticSearchInit(address string, username string, password string) error {
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{
-			"https://host.docker.internal:9200",		// Remember pass this to Env Variables
+			"https://host.docker.internal:9200", // Remember pass this to Env Variables
 		},
-		Username: "",
-		Password: "",						            // Remember to pass this to secrets and not commit this to the repo
+		Username: username,
+		Password: password, // Remember to pass this to secrets and not commit this to the repo
 		//CACert:   cert,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 10,
@@ -86,9 +81,9 @@ func (a *App) ElasticSearchInit(address string, username string, password string
 
 }
 
+func (a *App) ElasticSearchSearch(listen chan []Bot) error {
 
-func (a *App) ElasticSearchSearch(listen chan []Bot) ( error ) {
-
+	bi := []Bot{}
 
 	es := a.ElasticSearchClient
 
@@ -113,20 +108,17 @@ func (a *App) ElasticSearchSearch(listen chan []Bot) ( error ) {
         {
           "range": {
             "start_time": {
-              "gte": "2021-08-13T09:28:10.075Z",
-              "lte": "2021-08-13T10:28:10.075Z",
-              "format": "strict_date_optional_time"
+				"gt": "now-5m"
             }
           }
         }
       ]
     }
   }
-}`,namespace))
+}`, namespace))
 
 	now := time.Now()
 	secs := now.Unix()
-
 
 	botMap := make(map[string]int)
 
@@ -179,7 +171,7 @@ func (a *App) ElasticSearchSearch(listen chan []Bot) ( error ) {
 
 	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
 		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"].(string)
-		botMap[ips] ++
+		botMap[ips]++
 	}
 
 	for i, k := range botMap {
@@ -191,9 +183,37 @@ func (a *App) ElasticSearchSearch(listen chan []Bot) ( error ) {
 		bi = append(bi, bot)
 	}
 
-
 	listen <- bi
 
 	return nil
+
+}
+
+func CompareBlockedIps(bots []Bot, ips []string) string {
+
+	// compare the array of IPs of ES with the IPs of GCP armor
+
+	fmt.Println("Ips received from ES:", bots)
+	fmt.Println("IPs armor received in the func:", ips)
+
+	var count int
+	var ipWithMask string
+
+	for _, elasticIps := range bots {
+		for _, armorIps := range ips {
+			ipWithMask = elasticIps.ip + "/32"
+			if ipWithMask == armorIps {
+				fmt.Println("this IPs are already in the armor")
+				count++
+			}
+		}
+		fmt.Println("this IP is not in armor:", ipWithMask)
+	}
+
+	if count > 0 {
+		return "there is one IP that it is already in GCP"
+	}
+
+	return "this IP is not in armor"
 
 }
