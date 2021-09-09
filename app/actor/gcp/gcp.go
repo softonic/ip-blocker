@@ -1,45 +1,58 @@
-package app
+package gcp
 
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 )
 
-// conectar a GCP
-// usar json para private key
-// get rules de armor GCP
-// comprobar si las IPs que hemos sacado estan ya en las rules
+var (
+	stdlog, errlog *log.Logger
+)
 
-func ConnectGCP() ([]string, int32) {
+type GCPArmor struct {
+	Client *compute.SecurityPoliciesClient
+	Ctx    context.Context
+}
+
+func GCPConnection() GCPArmor {
 
 	ctx := context.Background()
 	c, err := compute.NewSecurityPoliciesRESTClient(ctx)
-
 	if err != nil {
-		// TODO: Handle error.
 		fmt.Println("\nError: ", err)
 		os.Exit(1)
 	}
-	defer c.Close()
+
+	return GCPArmor{
+		Client: c,
+		Ctx:    ctx,
+	}
+
+}
+
+func GetArmorRules(c GCPArmor) ([]string, int32) {
+
+	client := c.Client
+	ctx := c.Ctx
 
 	req := &computepb.GetSecurityPolicyRequest{
-		// TODO: Fill request struct fields.
-		// See https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/compute/v1#GetSecurityPolicyRequest.
 		Project:        "kubertonic",
 		SecurityPolicy: "global-loadbalancer-rules",
 	}
 
-	resp, err := c.Get(ctx, req)
+	defer client.Close()
+
+	resp, err := client.Get(ctx, req)
 	if err != nil {
 		// TODO: Handle error.
 		errlog.Println("\nError: ", err)
 		os.Exit(1)
 	}
-	// TODO: Use resp.
 
 	rules := make([]computepb.SecurityPolicyRule, 10)
 
@@ -76,7 +89,6 @@ func ConnectGCP() ([]string, int32) {
 			}
 
 		}
-
 		rules = append(rules, rule)
 		configs = append(configs, sourceIps)
 
@@ -86,57 +98,61 @@ func ConnectGCP() ([]string, int32) {
 
 	fmt.Println(ips)
 
+	fmt.Println(lastPriority)
+
 	return ips, lastPriority
 
 }
 
-func BlockedIPs(prio int32) string {
+func BlockIPsFromArmor(c GCPArmor, prio int32, candidateIPsBlocked []string) (error, string) {
 
-	ctx := context.Background()
-	c, err := compute.NewSecurityPoliciesRESTClient(ctx)
+	client := c.Client
+	ctx := c.Ctx
 
-	if err != nil {
-		// TODO: Handle error.
-		fmt.Println("\nError: ", err)
-		os.Exit(1)
-	}
-	defer c.Close()
+	defer client.Close()
+
+	var versioned *computepb.SecurityPolicyRuleMatcher_VersionedExpr
+
+	versioned = computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
 
 	action := "deny(403)"
 	description := "ip blocker"
 	priority := prio + 1
 	preview := true
 
-	match := &computepb.SecurityPolicyRuleMatcher{
-		Config: &computepb.SecurityPolicyRuleMatcherConfig{
-			SrcIpRanges: []string{
-				"1.1.1.1/32",
+	if len(candidateIPsBlocked) > 0 {
+
+		match := &computepb.SecurityPolicyRuleMatcher{
+			Config: &computepb.SecurityPolicyRuleMatcherConfig{
+				SrcIpRanges: candidateIPsBlocked,
 			},
-		},
+			VersionedExpr: versioned,
+		}
+
+		req := &computepb.AddRuleSecurityPolicyRequest{
+
+			Project:        "kubertonic",
+			SecurityPolicy: "test",
+			SecurityPolicyRuleResource: &computepb.SecurityPolicyRule{
+				Action:      &action,
+				Description: &description,
+				Priority:    &priority,
+				Preview:     &preview,
+				Match:       match,
+			},
+		}
+
+		resp, err := client.AddRule(ctx, req)
+		if err != nil {
+			// TODO: Handle error.
+			fmt.Println("\nError: ", err)
+			os.Exit(1)
+		}
+
+		return nil, *resp.Proto().StatusMessage
+
 	}
 
-	req := &computepb.AddRuleSecurityPolicyRequest{
-
-		Project:        "kubertonic",
-		SecurityPolicy: "test",
-		SecurityPolicyRuleResource: &computepb.SecurityPolicyRule{
-			Action:      &action,
-			Description: &description,
-			Priority:    &priority,
-			Preview:     &preview,
-			Match:       match,
-		},
-	}
-
-	resp, err := c.AddRule(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-		fmt.Println("\nError: ", err)
-		os.Exit(1)
-	}
-
-	_ = resp
-
-	return "done"
+	return nil, ""
 
 }

@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	cloud.google.com/go v0.94.1
+	github.com/elastic/go-elasticsearch v0.0.0
 	github.com/elastic/go-elasticsearch/v7 v7.14.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	golang.org/x/net v0.0.0-20210903162142-ad29c8ab022f // indirect

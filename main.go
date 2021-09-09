@@ -18,7 +18,6 @@ import (
 
 var (
 	stdlog, errlog *log.Logger
-	r              map[string]interface{}
 	wg             sync.WaitGroup
 	bi             []app.Bot
 	application    *app.App
@@ -47,15 +46,15 @@ func (service *Service) Manage(listen chan []app.Bot, ips []string, lastPriority
 	// We must use a buffered channel or risk missing the signal
 	// if we're not ready to receive when the signal is sent.
 	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	go doSearch(listen)
 
 	for {
 		select {
 		case n := <-listen:
-			fmt.Println(app.CompareBlockedIps(n, ips))
-			fmt.Println(app.BlockedIPs(lastPriority))
+			candidateIPsBlocked := app.CompareBlockedIps(n, ips)
+			fmt.Println(application.BlockIps(lastPriority, candidateIPsBlocked))
 			fmt.Println(n)
 		case killSignal := <-interrupt:
 			stdlog.Println("Got signal:", killSignal)
@@ -77,7 +76,7 @@ func doSearch(listen chan []app.Bot) {
 
 		// we can call here ES connection and queries
 
-		application.ElasticSearchSearch(listen)
+		application.SearchSource(listen)
 
 	}
 }
@@ -90,26 +89,25 @@ func init() {
 
 func main() {
 
+	listen := make(chan []app.Bot)
+
 	application = app.NewApp()
 
 	address := "https://host.docker.internal:9200"
 
 	username := "elastic"
-	password := "xxxx"
+	password := "XX"
 
-	err := application.ElasticSearchInit(address, username, password)
-	if err != nil {
-		errlog.Println("\nError search: ", err)
-		os.Exit(1)
-	}
+	application.InitSource(address, username, password)
 
-	ips, lastPriority := app.ConnectGCP()
+	application.InitActor()
 
-	listen := make(chan []app.Bot)
+	ips, lastPriority := application.GetInfoActor()
 
 	service := Service{}
 
-	//go application.ElasticSearchSearch(listen)
+	fmt.Println("these are the IPs from GCP:", ips)
+
 	status, err := service.Manage(listen, ips, lastPriority)
 	if err != nil {
 		errlog.Println(status, "\nError: ", err)
