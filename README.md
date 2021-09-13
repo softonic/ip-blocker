@@ -1,5 +1,5 @@
 # ip-blocker
-Daemon running in k8s that can block ideally IPs reading from a datasource and writing to a cloud firewall
+Daemon running in k8s that can block ideally IPs reading from a datasource where the IPs are already marked as banned and writing to a cloud firewall
 
 
 # Steps
