@@ -21,7 +21,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o ip-block
 FROM golang:1.15-buster
 WORKDIR /
 #COPY cacert /tmp
-#COPY kubertonic-ip-blocker.json /tmp
 COPY --from=builder /workspace/ip-blocker .
 USER root:root
 

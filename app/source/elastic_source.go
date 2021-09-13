@@ -1,4 +1,4 @@
-package elasticsearch
+package source
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/softonic/ip-blocker/app"
 )
 
 var (
@@ -18,11 +19,17 @@ var (
 	r              map[string]interface{}
 )
 
-type ElasticSearch struct {
+type ElasticSource struct {
 	client *elasticsearch.Client
 }
 
-func ElasticSearchInit(address string, username string, password string) ElasticSearch {
+func NewElasticSource(address string, username string, password string) *ElasticSource {
+	return &ElasticSource{
+		client: elasticSearchInit(address, username, password),
+	}
+}
+
+func elasticSearchInit(address string, username string, password string) *elasticsearch.Client {
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{
@@ -45,65 +52,68 @@ func ElasticSearchInit(address string, username string, password string) Elastic
 		fmt.Println("\nError creating the client: ", err)
 		os.Exit(1)
 	}
-	log.Println(elasticsearch.Version)
+	fmt.Println(elasticsearch.Version)
 
-	return ElasticSearch{
-		client: es,
-	}
+	return es
 
 }
 
-func ElasticSearchSearch(es ElasticSearch) map[string]int {
-
-	//es := a.ElasticSearchClient
-
-	client := es.client
-
-	namespace := "istio-system"
-
-	queryString := []byte(fmt.Sprintf(`{
-  "query": {
-    "bool": {
-      "filter": [
-          {
-          "term": {
-            "kubernetes.namespace": {
-              "value": "%s"
-            }
-          }
-        },
-        {
-          "match_phrase": {
-            "response_code": "429"
-          }
-        },
-        {
-          "range": {
-            "start_time": {
-				"gt": "now-5m"
-            }
-          }
-        }
-      ]
-    }
-  }
-}`, namespace))
+func getElasticIndex(basename string) string {
 
 	now := time.Now()
-
-	botMap := make(map[string]int)
-
-	read := bytes.NewReader(queryString)
 
 	suffix := fmt.Sprintf("%d.%02d.%02d",
 		now.Year(), now.Month(), now.Day())
 
-	index := "istio-system-istio-system-" + suffix
+	index := basename + "-" + suffix
+
+	return index
+
+}
+
+func (s *ElasticSource) GetIPCount() []app.IPCount {
+
+	client := s.client
+
+	namespace := "istio-system"
+
+	queryString := []byte(fmt.Sprintf(`{
+	  "query": {
+		"bool": {
+		  "filter": [
+			  {
+			  "term": {
+				"kubernetes.namespace": {
+				  "value": "%s"
+				}
+			  }
+			},
+			{
+			  "match_phrase": {
+				"response_code": "429"
+			  }
+			},
+			{
+			  "range": {
+				"start_time": {
+					"gt": "now-5m"
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	}`, namespace))
+
+	ipCounter := make(map[string]int)
+
+	read := bytes.NewReader(queryString)
+
+	todayIndexName := getElasticIndex("istio-system-istio-system")
 
 	// Perform the search request.
 	res, err := client.Search(
-		//es.Search.WithContext(context.Background()),
-		client.Search.WithIndex(index),
+		client.Search.WithIndex(todayIndexName),
 		client.Search.WithBody(read),
 		client.Search.WithTrackTotalHits(true),
 		client.Search.WithPretty(),
@@ -141,9 +151,19 @@ func ElasticSearchSearch(es ElasticSearch) map[string]int {
 
 	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
 		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"].(string)
-		botMap[ips]++
+		ipCounter[ips]++
 	}
 
-	return botMap
+	bi := []app.IPCount{}
+
+	for i, k := range ipCounter {
+		bot := app.IPCount{
+			IP:    i,
+			Count: int32(k),
+		}
+		bi = append(bi, bot)
+	}
+
+	return bi
 
 }

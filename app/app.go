@@ -3,114 +3,70 @@ package app
 import (
 	"fmt"
 	"log"
-	"sync"
-
-	"github.com/softonic/ip-blocker/app/actor"
-	"github.com/softonic/ip-blocker/app/source"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 var (
-	stdlog, errlog *log.Logger
-	r              map[string]interface{}
-	wg             sync.WaitGroup
+	stdlog *log.Logger
 )
+
+type Source interface {
+	GetIPCount() []IPCount
+}
+
+type Actor interface {
+	BlockIPs([]IPCount) error
+}
+
+type IPCount struct {
+	IP    string
+	Count int32
+}
 
 // App : Basic struct
 type App struct {
-	Source source.Source
-	Actor  actor.Actor
+	source Source
+	actor  Actor
 }
 
-type Bot struct {
-	ip      string
-	count   int
-	blocked bool
-}
-
-func NewBot() *Bot {
-	return &Bot{}
-}
-
-func NewApp() *App {
-
-	source := source.Source{}
-	actor := actor.Actor{}
+func NewApp(s Source, a Actor) *App {
 
 	return &App{
-		Source: source,
-		Actor:  actor,
+		source: s,
+		actor:  a,
 	}
 }
 
-func (a *App) InitSource(address string, username string, password string) {
-	a.Source.InitConnectiontoSource(address, username, password)
+func getIPsToChannel(listen chan []IPCount, source Source) {
+	for {
+		time.Sleep(time.Millisecond * 300000)
+
+		listen <- source.GetIPCount()
+
+	}
 }
 
-func (a *App) InitActor() {
-	a.Actor.InitConnectiontoActor()
-}
+func (a *App) Start() {
 
-func (a *App) SearchSource(listen chan []Bot) error {
+	listen := make(chan []IPCount)
 
-	bi := []Bot{}
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
-	botMap := a.Source.SearchSource()
+	go getIPsToChannel(listen, a.source)
 
-	for i, k := range botMap {
-		bot := Bot{
-			ip:    i,
-			count: k,
+	for {
+		select {
+		case sourceIPs := <-listen:
+			err := a.actor.BlockIPs(sourceIPs)
+			fmt.Println(err)
+		case killSignal := <-interrupt:
+			stdlog.Println("Got signal:", killSignal)
+			stdlog.Println("Stoping daemon")
 		}
-		bi = append(bi, bot)
 	}
-
-	fmt.Println("These are the bots from ES:", bi)
-
-	listen <- bi
-
-	return nil
-
-}
-
-func (a *App) GetInfoActor() ([]string, int32) {
-
-	ips, lastPriority := a.Actor.GetIPsfromRulesActor()
-
-	return ips, lastPriority
-
-}
-
-func (a *App) BlockIps(prio int32, candidateIPsBlocked []string) (error, string) {
-
-	err, status := a.Actor.BlockIPsFromActor(prio, candidateIPsBlocked)
-
-	return err, status
-
-}
-
-func CompareBlockedIps(bots []Bot, ips []string) []string {
-
-	// compare the array of IPs of ES with the IPs of GCP armor
-
-	fmt.Println("Ips received from ES:", bots)
-	fmt.Println("IPs armor received in the func:", ips)
-
-	var count int
-	var ipWithMaskES string
-	candidateIPsBlocked := []string{}
-
-	for _, elasticIps := range bots {
-		for _, armorIps := range ips {
-			ipWithMaskES = elasticIps.ip + "/32"
-			if ipWithMaskES == armorIps {
-				fmt.Println("this IPs are already in the armor")
-				count++
-			}
-		}
-		fmt.Println("this IP is not in armor:", ipWithMaskES)
-		candidateIPsBlocked = append(candidateIPsBlocked, ipWithMaskES)
-	}
-
-	return candidateIPsBlocked
 
 }

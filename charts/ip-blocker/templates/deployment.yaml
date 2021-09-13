@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ip-blocker.fullname" . }}
+  labels:
+      {{- include "ip-blocker.labels" . | nindent 6 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      app: ip-blocker
+      {{- include "ip-blocker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+        app: ip-blocker
+        {{- include "ip-blocker.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - command:
+        - /ip-blocker
+        image: {{ include "ip-blocker.image" . }}
+        name: ip-blocker
+        env:
+        - name: ELASTIC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: elastic-credentials
+              key: username
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: elastic-credentials
+              key: password
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /secrets/credentials.json
+        volumeMounts:
+        - name: credentials
+          mountPath: /secrets
+      volumes:
+      - name: credentials
+        secret:
+          secretName: google-credentials
