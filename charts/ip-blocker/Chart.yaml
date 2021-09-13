@@ -1,6 +1,6 @@
 apiVersion: v2
 name: ip-blocker
-description: 
+description: This chart deploys a daemon in k8s for blocking IPs from unwanted bots
 type: application
 version: 0.0.1
 appVersion: 0.0.1
