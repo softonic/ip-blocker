@@ -29,6 +29,9 @@ spec:
         - /ip-blocker
         image: {{ include "ip-blocker.image" . }}
         name: ip-blocker
+        args:
+        - -project=kubertonic
+        - -policy=global-loadbalancer-rules
         env:
         - name: ELASTIC_USERNAME
           valueFrom:
@@ -40,6 +43,8 @@ spec:
             secretKeyRef:
               name: elastic-credentials
               key: password
+        - name: ELASTIC_ADDRESS
+          value: "https://host.docker.internal:9200"
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /secrets/credentials.json
         volumeMounts:
