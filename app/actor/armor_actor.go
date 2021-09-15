@@ -296,7 +296,7 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 	client := g.client
 	ctx := g.ctx
 
-	var prio []int32
+	var prios []int32
 
 	req := &computepb.GetSecurityPolicyRequest{
 		Project:        g.k8sProject,
@@ -318,8 +318,13 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 			for _, k := range singleRule.Match.Config.SrcIpRanges {
 				for _, m := range ips {
 					if k == m {
+						found := find(prios, *singleRule.Priority)
+						// check if prio already exists in array []prio
 						// so the ip is in the rule, you can get the prio of this rule
-						prio = append(prio, *singleRule.Priority)
+						if !found {
+							prios = append(prios, *singleRule.Priority)
+						}
+
 					}
 				}
 			}
@@ -328,6 +333,15 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 
 	}
 
-	return prio
+	return prios
 
+}
+
+func find(slice []int32, val int32) bool {
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
 }
