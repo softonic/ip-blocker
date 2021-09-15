@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
@@ -33,7 +34,7 @@ func elasticSearchInit(address string, username string, password string) *elasti
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{
-			"https://host.docker.internal:9200", // Remember pass this to Env Variables
+			address, // Remember pass this to Env Variables
 		},
 		Username: username,
 		Password: password, // Remember to pass this to secrets and not commit this to the repo
@@ -117,7 +118,7 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 		client.Search.WithBody(read),
 		client.Search.WithTrackTotalHits(true),
 		client.Search.WithPretty(),
-		client.Search.WithSize(100),
+		client.Search.WithSize(10000),
 	)
 	if err != nil {
 		log.Printf("error getting response: %s", err)
@@ -154,16 +155,44 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 		ipCounter[ips]++
 	}
 
+	fmt.Println(ipCounter)
+
 	bi := []app.IPCount{}
+	output := []app.IPCount{}
 
 	for i, k := range ipCounter {
 		bot := app.IPCount{
 			IP:    i,
 			Count: int32(k),
 		}
-		bi = append(bi, bot)
+		if k > 5 {
+			fmt.Println("count is greater than 5:", bot)
+			bi = append(bi, bot)
+		}
+
 	}
 
-	return bi
+	fmt.Println("these are the ips searched by func GetIPCount", bi)
+
+	// sort app.IpCount or bi
+
+	sort.Slice(bi, func(i, j int) bool {
+		return bi[i].Count > bi[j].Count
+	})
+
+	// trim the bi array to 10 as cloudArmor does not allow more than 10 IPs per rule
+	if len(bi) > 10 {
+		for i := 0; i < 10; i++ {
+			output = append(output, bi[i])
+		}
+	} else {
+		for i := 0; i < len(bi); i++ {
+			output = append(output, bi[i])
+		}
+	}
+
+	fmt.Println(output)
+
+	return output
 
 }
