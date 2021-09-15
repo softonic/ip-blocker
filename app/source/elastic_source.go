@@ -34,10 +34,10 @@ func elasticSearchInit(address string, username string, password string) *elasti
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{
-			address, // Remember pass this to Env Variables
+			address,
 		},
 		Username: username,
-		Password: password, // Remember to pass this to secrets and not commit this to the repo
+		Password: password,
 		//CACert:   cert,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 10,
@@ -112,7 +112,6 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 
 	todayIndexName := getElasticIndex("istio-system-istio-system")
 
-	// Perform the search request.
 	res, err := client.Search(
 		client.Search.WithIndex(todayIndexName),
 		client.Search.WithBody(read),
@@ -174,8 +173,6 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 
 	fmt.Println("these are the ips searched by func GetIPCount", bi)
 
-	// sort app.IpCount or bi
-
 	sort.Slice(bi, func(i, j int) bool {
 		return bi[i].Count > bi[j].Count
 	})
@@ -191,7 +188,7 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 		}
 	}
 
-	fmt.Println(output)
+	fmt.Println("these are the ips searched by func GetIPCount but ordered and trimmed to 10", output)
 
 	return output
 

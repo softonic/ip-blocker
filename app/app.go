@@ -79,7 +79,6 @@ func (a *App) Start() {
 			err := a.actor.BlockIPs(sourceIPs)
 			fmt.Println(err)
 		case <-exit:
-			//fmt.Println("these are the blockedIPs:", blockedIPs)
 			err := a.actor.UnBlockIPs()
 			fmt.Println(err)
 		case killSignal := <-interrupt:
