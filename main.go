@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "bytes"
+	"flag"
 	_ "io/ioutil"
 	"log"
 	"os"
@@ -12,7 +13,8 @@ import (
 )
 
 var (
-	stdlog, errlog *log.Logger
+	stdlog, errlog  *log.Logger
+	project, policy string
 )
 
 func init() {
@@ -30,8 +32,10 @@ func main() {
 
 	username := os.Getenv("ELASTIC_USERNAME")
 
-	project := "kubertonic"
-	policy := "global-loadbalancer-rules"
+	flag.StringVar(&project, "project", "project", "kubernetes GCP project")
+	flag.StringVar(&policy, "policy", "default", "The firewall rule that we will modify")
+
+	flag.Parse()
 
 	s := source.NewElasticSource(address, username, password)
 	a := actor.NewGCPArmorActor(project, policy)
