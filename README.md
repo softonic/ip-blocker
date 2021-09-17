@@ -10,3 +10,9 @@ Daemon running in k8s that can block ideally IPs reading from a datasource where
 4. Every 1h there is another process inside the daemon that check if the expirationdate of the IP ban rules.
   If there is an expiration, it unban the IP
   Also set the blocked boolean field to true/false 
+
+
+# Flow 
+
+
+![Diagram Flow](flow.jpg)
