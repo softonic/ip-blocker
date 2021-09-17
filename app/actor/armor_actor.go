@@ -112,7 +112,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	actorIPs, _ := getIPsAlreadyBlockedFromRules(g, g.policy)
 
-	candidateIPstoBlock := detectIfTheseIPsAreNotBlocked(sourceIPs, actorIPs)
+	candidateIPstoBlock := detectWhichOfTheseIPsAreNotBlocked(sourceIPs, actorIPs)
 
 	versioned := computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
 
@@ -163,7 +163,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 }
 
-func detectIfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []string) []string {
+func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []string) []string {
 
 	// compare the array of IPs of ES with the IPs of GCP armor
 
