@@ -32,8 +32,6 @@ func main() {
 
 	username := os.Getenv("ELASTIC_USERNAME")
 
-	// GET THESE VARS FROM ARGS
-
 	flag.StringVar(&project, "project", "project", "kubernetes GCP project")
 	flag.StringVar(&policy, "policy", "default", "The firewall rule that we will modify")
 
