@@ -19,6 +19,7 @@ type Source interface {
 
 type Actor interface {
 	BlockIPs([]IPCount) error
+	UnBlockIPs() error
 }
 
 type IPCount struct {
@@ -42,9 +43,20 @@ func NewApp(s Source, a Actor) *App {
 
 func getIPsToChannel(listen chan []IPCount, source Source) {
 	for {
-		time.Sleep(time.Millisecond * 300000)
+		time.Sleep(time.Millisecond * 100000)
 
 		listen <- source.GetIPCount()
+
+	}
+}
+
+func getBlockedIPsToChannel(exit chan bool, actor Actor) {
+	for {
+		time.Sleep(time.Millisecond * 300000)
+
+		//blocked <- actor.GetBlockedIPsFromActorThatCanBeUnblocked()
+
+		exit <- true
 
 	}
 }
@@ -52,16 +64,22 @@ func getIPsToChannel(listen chan []IPCount, source Source) {
 func (a *App) Start() {
 
 	listen := make(chan []IPCount)
+	//blocked := make(chan []string)
+	exit := make(chan bool)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	go getIPsToChannel(listen, a.source)
+	go getBlockedIPsToChannel(exit, a.actor)
 
 	for {
 		select {
 		case sourceIPs := <-listen:
 			err := a.actor.BlockIPs(sourceIPs)
+			fmt.Println(err)
+		case <-exit:
+			err := a.actor.UnBlockIPs()
 			fmt.Println(err)
 		case killSignal := <-interrupt:
 			stdlog.Println("Got signal:", killSignal)
