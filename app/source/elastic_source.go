@@ -156,6 +156,12 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 
 	fmt.Println(ipCounter)
 
+	return orderAndTrimIPs(ipCounter)
+
+}
+
+func orderAndTrimIPs(ipCounter map[string]int) []app.IPCount {
+
 	bi := []app.IPCount{}
 	output := []app.IPCount{}
 
