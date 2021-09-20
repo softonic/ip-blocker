@@ -29,9 +29,10 @@ spec:
         - /ip-blocker
         image: {{ include "ip-blocker.image" . }}
         name: ip-blocker
+{{- if .Values.args }}
         args:
-        - -project=kubertonic
-        - -policy=global-loadbalancer-rules
+{{ toYaml .Values.args | indent 10 }}
+{{- end }}
         env:
         - name: ELASTIC_USERNAME
           valueFrom:
