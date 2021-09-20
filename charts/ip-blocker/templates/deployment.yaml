@@ -47,7 +47,7 @@ spec:
           value: {{ .Values.elastic.address }}
         - name: INTERVAL_BLOCK_TIME
           value: {{ .Values.app.intervalBlockTime | quote }}
-        - name: INTERVAL_UNBLOCK_TIME
+        - name: TTL_RULES
           value: {{ .Values.app.intervalUnBlockTime | quote }}
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /secrets/credentials.json

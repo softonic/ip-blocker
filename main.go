@@ -34,7 +34,7 @@ func main() {
 
 	intervalBlockTime, _ := strconv.Atoi(os.Getenv("INTERVAL_BLOCK_TIME"))
 
-	intervalUnBlockTime, _ := strconv.Atoi(os.Getenv("INTERVAL_UNBLOCK_TIME"))
+	ttlRules, _ := strconv.Atoi(os.Getenv("TTL_RULES"))
 
 	flag.StringVar(&project, "project", "project", "kubernetes GCP project")
 	flag.StringVar(&policy, "policy", "default", "The firewall rule that we will modify")
@@ -46,6 +46,6 @@ func main() {
 
 	application := app.NewApp(s, a)
 
-	application.Start(intervalBlockTime, intervalUnBlockTime)
+	application.Start(intervalBlockTime, ttlRules)
 
 }

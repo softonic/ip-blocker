@@ -3,7 +3,6 @@ package actor
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
@@ -185,8 +184,8 @@ func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []stri
 
 }
 
-// GetBlockedIPsFromActorThatCanBeUnblocked: return IPs that has been blocked for more than N secs
-func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
+// GetBlockedIPsFromActorThatCanBeUnblocked: return IPs that has been blocked for more than ttlRules min
+func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor, ttlRules int) []string {
 
 	client := g.client
 	ctx := g.ctx
@@ -217,7 +216,7 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 			if err != nil {
 				continue
 			}
-			if (secs - n) > 301 {
+			if (secs - n) > int64(ttlRules*60) {
 
 				restIps = singleRule.Match.Config.SrcIpRanges
 
@@ -234,22 +233,20 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 }
 
-func (g *GCPArmorActor) UnBlockIPs() error {
+func (g *GCPArmorActor) UnBlockIPs(ttlRules int) error {
 
 	client := g.client
 	ctx := g.ctx
 	project := g.k8sProject
 
-	ips := getBlockedIPsFromActorThatCanBeUnblocked(g)
+	ips := getBlockedIPsFromActorThatCanBeUnblocked(g, ttlRules)
 
 	prios := getRuleFromIP(g, ips)
 
 	for _, prio := range prios {
 
 		if prio == 0 {
-			fmt.Println("ips received", ips)
-			fmt.Println("the ptio is:", prio)
-			return errors.New("There are no rules in this policy")
+			return errors.New("there are no rules in this policy")
 		}
 
 		req := &computepb.RemoveRuleSecurityPolicyRequest{
