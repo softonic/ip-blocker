@@ -11,4 +11,5 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/api v0.56.0 // indirect
 	google.golang.org/genproto v0.0.0-20210903162649-d08c68adba83
+	k8s.io/klog v1.0.0
 )

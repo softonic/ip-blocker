@@ -5,19 +5,19 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"sort"
 	"time"
+
+	"k8s.io/klog"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/softonic/ip-blocker/app"
 )
 
 var (
-	stdlog, errlog *log.Logger
-	r              map[string]interface{}
+	r map[string]interface{}
 )
 
 type ElasticSource struct {
@@ -50,10 +50,13 @@ func elasticSearchInit(address string, username string, password string) *elasti
 
 	es, err := elasticsearch.NewClient(cfg)
 	if err != nil {
-		fmt.Println("\nError creating the client: ", err)
+		klog.Errorf("\nError: %v", err)
 		os.Exit(1)
 	}
-	fmt.Println(elasticsearch.Version)
+
+	klog.Infof("Connecting to ES in address: %s", address)
+
+	klog.Infof("this is the ES version: %s", elasticsearch.Version)
 
 	return es
 
@@ -72,7 +75,7 @@ func getElasticIndex(basename string) string {
 
 }
 
-func (s *ElasticSource) GetIPCount() []app.IPCount {
+func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	client := s.client
 
@@ -97,14 +100,14 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 			{
 			  "range": {
 				"start_time": {
-					"gt": "now-5m"
+					"gt": "now-%dm"
 				}
 			  }
 			}
 		  ]
 		}
 	  }
-	}`, namespace))
+	}`, namespace, interval))
 
 	ipCounter := make(map[string]int)
 
@@ -120,8 +123,7 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 		client.Search.WithSize(10000),
 	)
 	if err != nil {
-		log.Printf("error getting response: %s", err)
-		log.Fatalf("Error getting response: %s", err)
+		klog.Fatalf("Error getting response: %s", err)
 	}
 
 	defer res.Body.Close()
@@ -129,20 +131,21 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 	if res.IsError() {
 		var e map[string]interface{}
 		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-			log.Fatalf("Error parsing the response body: %s", err)
+			klog.Fatalf("Error parsing the respnse body: %s", err)
 		} else {
-			log.Fatalf("[%s] %s: %s",
+			klog.Fatalf("[%s] %s: %s",
 				res.Status(),
 				e["error"].(map[string]interface{})["type"],
 				e["error"].(map[string]interface{})["reason"],
 			)
+
 		}
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-		log.Fatalf("Error parsing the response body: %s", err)
+		klog.Fatalf("Error parsing the response body: %s", err)
 	}
-	log.Printf(
+	klog.Infof(
 		"[%s] %d hits; took: %dms",
 		res.Status(),
 		int(r["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"].(float64)),
@@ -153,8 +156,6 @@ func (s *ElasticSource) GetIPCount() []app.IPCount {
 		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"].(string)
 		ipCounter[ips]++
 	}
-
-	fmt.Println(ipCounter)
 
 	return orderAndTrimIPs(ipCounter)
 
@@ -171,19 +172,15 @@ func orderAndTrimIPs(ipCounter map[string]int) []app.IPCount {
 			Count: int32(k),
 		}
 		if k > 5 {
-			fmt.Println("count is greater than 5:", bot)
 			bi = append(bi, bot)
 		}
 
 	}
 
-	fmt.Println("these are the ips searched by func GetIPCount", bi)
-
 	sort.Slice(bi, func(i, j int) bool {
 		return bi[i].Count > bi[j].Count
 	})
 
-	// trim the bi array to 10 as cloudArmor does not allow more than 10 IPs per rule
 	if len(bi) > 10 {
 		for i := 0; i < 10; i++ {
 			output = append(output, bi[i])
@@ -193,8 +190,6 @@ func orderAndTrimIPs(ipCounter map[string]int) []app.IPCount {
 			output = append(output, bi[i])
 		}
 	}
-
-	fmt.Println("these are the ips searched by func GetIPCount but ordered and trimmed to 10", output)
 
 	return output
 
