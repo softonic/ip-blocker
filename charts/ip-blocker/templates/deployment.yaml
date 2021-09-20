@@ -44,7 +44,11 @@ spec:
               name: elastic-credentials
               key: password
         - name: ELASTIC_ADDRESS
-          value: "https://host.docker.internal:9200"
+          value: {{ .Values.elastic.address }}
+        - name: INTERVAL_BLOCK_TIME
+          value: {{ .Values.app.intervalBlockTime | quote }}
+        - name: TTL_RULES
+          value: {{ .Values.app.intervalUnBlockTime | quote }}
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /secrets/credentials.json
         volumeMounts:
