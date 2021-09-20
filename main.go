@@ -5,6 +5,9 @@ import (
 	"flag"
 	_ "io/ioutil"
 	"os"
+	"strconv"
+
+	"k8s.io/klog"
 
 	"k8s.io/klog"
 
@@ -31,6 +34,10 @@ func main() {
 	password := os.Getenv("ELASTIC_PASSWORD")
 
 	username := os.Getenv("ELASTIC_USERNAME")
+
+	intervalBlockTime, _ := strconv.Atoi(os.Getenv("INTERVAL_BLOCK_TIME"))
+
+	ttlRules, _ := strconv.Atoi(os.Getenv("TTL_RULES"))
 
 	flag.StringVar(&project, "project", "project", "kubernetes GCP project")
 	flag.StringVar(&policy, "policy", "default", "The firewall rule that we will modify")

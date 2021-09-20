@@ -236,13 +236,13 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 }
 
-func (g *GCPArmorActor) UnBlockIPs() error {
+func (g *GCPArmorActor) UnBlockIPs(ttlRules int) error {
 
 	client := g.client
 	ctx := g.ctx
 	project := g.k8sProject
 
-	ips := getBlockedIPsFromActorThatCanBeUnblocked(g)
+	ips := getBlockedIPsFromActorThatCanBeUnblocked(g, ttlRules)
 
 	prios := getRuleFromIP(g, ips)
 

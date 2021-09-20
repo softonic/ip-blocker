@@ -163,6 +163,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		ipCounter[ips]++
 	}
 
+
 	maxCounter := calculateCountBlockThreshold(threshold, interval)
 
 	return orderAndTrimIPs(ipCounter, maxCounter)
