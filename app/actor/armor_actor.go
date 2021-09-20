@@ -3,21 +3,17 @@ package actor
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"strconv"
 	"time"
 
+	"k8s.io/klog"
+
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 
 	"github.com/softonic/ip-blocker/app"
-)
-
-var (
-	stdlog, errlog *log.Logger
 )
 
 type GCPArmorActor struct {
@@ -44,7 +40,7 @@ func InitConnectiontoActor() (*compute.SecurityPoliciesClient, context.Context) 
 	ctx := context.Background()
 	c, err := compute.NewSecurityPoliciesRESTClient(ctx)
 	if err != nil {
-		fmt.Println("\nError: ", err)
+		klog.Error("\nError: ", err)
 		os.Exit(1)
 	}
 
@@ -66,7 +62,7 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 	resp, err := client.Get(ctx, req)
 	if err != nil {
-		fmt.Println("\nError: ", err)
+		klog.Error("\nError: ", err)
 		os.Exit(1)
 	}
 
@@ -95,8 +91,6 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 		}
 
 	}
-
-	fmt.Println("These are the IPs already banned in armor that return from func getIPsAlreadyBlockedFromRules:", ips)
 
 	return ips, lastPriority
 
@@ -149,8 +143,10 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 		resp, err := client.AddRule(ctx, req)
 		if err != nil {
-			fmt.Println("\nError: ", err)
+			klog.Error("\nError: ", err)
 			return err
+		} else {
+			klog.Infof("Adding rule with prio: %d", priority)
 		}
 
 		_ = resp
@@ -170,20 +166,15 @@ func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []stri
 	var ipWithMaskES string
 	candidateIPsBlocked := []string{}
 
-	fmt.Println("These are the IPs from source", sourceIPs)
-	fmt.Println("These are the IPs from Armor", actorIPs)
-
 	for _, elasticIps := range sourceIPs {
 		count := 0
 		for _, armorIps := range actorIPs {
 			ipWithMaskES = elasticIps.IP + "/32"
 			if ipWithMaskES == armorIps {
-				fmt.Println("this IPs are already in the armor", ipWithMaskES)
 				count++
 			}
 		}
 		if count == 0 {
-			fmt.Println("this IP is not in armor:", elasticIps.IP+"/32")
 			candidateIPsBlocked = append(candidateIPsBlocked, elasticIps.IP+"/32")
 		}
 
@@ -193,8 +184,8 @@ func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []stri
 
 }
 
-// GetBlockedIPsFromActorThatCanBeUnblocked: return IPs that has been blocked for more than N secs
-func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
+// GetBlockedIPsFromActorThatCanBeUnblocked: return IPs that has been blocked for more than ttlRules min
+func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor, ttlRules int) []string {
 
 	client := g.client
 	ctx := g.ctx
@@ -208,7 +199,7 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 	resp, err := client.Get(ctx, req)
 	if err != nil {
-		fmt.Println("\nError: ", err)
+		klog.Error("\nError:", err)
 		os.Exit(1)
 	}
 
@@ -222,48 +213,40 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 		if *singleRule.Action != "allow" {
 
 			n, err := strconv.ParseInt(*singleRule.Description, 10, 64)
-			fmt.Println("this rule has a epoch of:", n)
 			if err != nil {
-				fmt.Println("this is not a description")
 				continue
 			}
-			if (secs - n) > 301 {
-				fmt.Println("Its been more than 1 day, we can unban this")
+			if (secs - n) > int64(ttlRules*60) {
 
 				restIps = singleRule.Match.Config.SrcIpRanges
 
 				ips = append(ips, restIps...)
 			} else {
-				fmt.Println("Still valid, dont unblock")
+				klog.Infof("This rule with priority %d is still valid", *singleRule.Priority)
 			}
 
 		}
 
 	}
-	fmt.Println("These are the IPs I should ban", ips)
 
 	return ips
 
 }
 
-func (g *GCPArmorActor) UnBlockIPs() error {
+func (g *GCPArmorActor) UnBlockIPs(ttlRules int) error {
 
 	client := g.client
 	ctx := g.ctx
 	project := g.k8sProject
 
-	ips := getBlockedIPsFromActorThatCanBeUnblocked(g)
+	ips := getBlockedIPsFromActorThatCanBeUnblocked(g, ttlRules)
 
 	prios := getRuleFromIP(g, ips)
-
-	fmt.Println("the prios gotten from getRuleFromIP", prios)
 
 	for _, prio := range prios {
 
 		if prio == 0 {
-			fmt.Println("ips received", ips)
-			fmt.Println("the ptio is:", prio)
-			return errors.New("There are no rules in this policy")
+			return errors.New("there are no rules in this policy")
 		}
 
 		req := &computepb.RemoveRuleSecurityPolicyRequest{
@@ -273,11 +256,11 @@ func (g *GCPArmorActor) UnBlockIPs() error {
 			Priority:       &prio,
 		}
 
-		fmt.Println("we are unblocking the following prios/rules", prio)
+		klog.Infof("Removing the rules with %d", prio)
 
 		resp, err := client.RemoveRule(ctx, req)
 		if err != nil {
-			fmt.Println("\nError: ", err)
+			klog.Error("\nError: ", err)
 			return err
 		}
 
@@ -305,7 +288,7 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 
 	resp, err := client.Get(ctx, req)
 	if err != nil {
-		fmt.Println("\nError: ", err)
+		klog.Error("\nError: ", err)
 		os.Exit(1)
 	}
 

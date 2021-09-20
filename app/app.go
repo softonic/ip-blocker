@@ -1,25 +1,21 @@
 package app
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-)
 
-var (
-	stdlog *log.Logger
+	"k8s.io/klog"
 )
 
 type Source interface {
-	GetIPCount() []IPCount
+	GetIPCount(int) []IPCount
 }
 
 type Actor interface {
 	BlockIPs([]IPCount) error
-	UnBlockIPs() error
+	UnBlockIPs(int) error
 }
 
 type IPCount struct {
@@ -41,49 +37,53 @@ func NewApp(s Source, a Actor) *App {
 	}
 }
 
-func getIPsToChannel(listen chan []IPCount, source Source) {
-	for {
-		time.Sleep(time.Millisecond * 100000)
+func getIPsToChannel(listen chan []IPCount, source Source, interval int) {
 
-		listen <- source.GetIPCount()
+	for {
+		time.Sleep(time.Second * 60 * time.Duration(interval))
+
+		listen <- source.GetIPCount(interval)
 
 	}
 }
 
-func getBlockedIPsToChannel(exit chan bool, actor Actor) {
+func getBlockedIPsToChannel(exit chan bool, actor Actor, ttlRules int) {
 	for {
-		time.Sleep(time.Millisecond * 300000)
-
-		//blocked <- actor.GetBlockedIPsFromActorThatCanBeUnblocked()
+		time.Sleep(time.Second * 60 * 10)
 
 		exit <- true
 
 	}
 }
 
-func (a *App) Start() {
+func (a *App) Start(intervalBlockTime int, ttlRules int) {
+
+	klog.Infof("Starting daemon")
 
 	listen := make(chan []IPCount)
-	//blocked := make(chan []string)
 	exit := make(chan bool)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
-	go getIPsToChannel(listen, a.source)
-	go getBlockedIPsToChannel(exit, a.actor)
+	go getIPsToChannel(listen, a.source, intervalBlockTime)
+	go getBlockedIPsToChannel(exit, a.actor, ttlRules)
 
 	for {
 		select {
 		case sourceIPs := <-listen:
 			err := a.actor.BlockIPs(sourceIPs)
-			fmt.Println(err)
+			if err != nil {
+				klog.Errorf("\nError: %v", err)
+			}
 		case <-exit:
-			err := a.actor.UnBlockIPs()
-			fmt.Println(err)
+			err := a.actor.UnBlockIPs(ttlRules)
+			if err != nil {
+				klog.Errorf("\nError: %v", err)
+			}
 		case killSignal := <-interrupt:
-			stdlog.Println("Got signal:", killSignal)
-			stdlog.Println("Stoping daemon")
+			klog.Infof("Got signal: %v", killSignal)
+			klog.Infof("Stopping daemon")
 		}
 	}
 

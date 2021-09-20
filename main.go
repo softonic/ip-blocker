@@ -4,8 +4,10 @@ import (
 	_ "bytes"
 	"flag"
 	_ "io/ioutil"
-	"log"
 	"os"
+	"strconv"
+
+	"k8s.io/klog"
 
 	"github.com/softonic/ip-blocker/app"
 	"github.com/softonic/ip-blocker/app/actor"
@@ -13,13 +15,11 @@ import (
 )
 
 var (
-	stdlog, errlog  *log.Logger
 	project, policy string
 )
 
 func init() {
-	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
+	klog.InitFlags(nil)
 }
 
 func main() {
@@ -32,16 +32,24 @@ func main() {
 
 	username := os.Getenv("ELASTIC_USERNAME")
 
+	namespace := os.Getenv("NAMESPACE")
+
+	intervalBlockTime, _ := strconv.Atoi(os.Getenv("INTERVAL_BLOCK_TIME"))
+
+	ttlRules, _ := strconv.Atoi(os.Getenv("TTL_RULES"))
+
+	threshold429PerMin, _ := strconv.Atoi(os.Getenv("THRESHOLD_429_PER_MIN"))
+
 	flag.StringVar(&project, "project", "project", "kubernetes GCP project")
 	flag.StringVar(&policy, "policy", "default", "The firewall rule that we will modify")
 
 	flag.Parse()
 
-	s := source.NewElasticSource(address, username, password)
+	s := source.NewElasticSource(address, username, password, namespace, threshold429PerMin)
 	a := actor.NewGCPArmorActor(project, policy)
 
 	application := app.NewApp(s, a)
 
-	application.Start()
+	application.Start(intervalBlockTime, ttlRules)
 
 }

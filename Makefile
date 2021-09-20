@@ -28,7 +28,7 @@ all: dev
 .PHONY: build
 build: 
 	go mod download
-	GOARCH=${ARCH} go build -ldflags "-X ${PKG}/pkg/version.Version=${VERSION}" .
+	GOARCH=${ARCH} go build .
 
 .PHONY: image
 image:
@@ -55,8 +55,20 @@ run: fmt vet
 fmt:
 	go fmt ./...
 
-# Run go vet against code
-.PHONY: vet
-vet:
-	go vet ./...
+.PHONY: make-manifest
+make-manifest:
+	docker run --rm -v $(PWD):/app -w /app/ alpine/helm:3.2.3 template --release-name $(RELEASE_NAME) --set "image.tag=$(VERSION)" --set "image.repository=$(REPOSITORY)"  -f chart/ip-blocker/values.yaml chart/ip-blocker > manifest.yaml
+
+.PHONY: undeploy
+undeploy:
+	kubectl delete -f manifest.yaml || true
+
+.PHONY: deploy
+deploy: make-manifest
+	kubectl apply -f manifest.yaml
+
+.PHONY: helm-deploy
+helm-deploy:
+	helm upgrade --install $(RELEASE_NAME) --namespace $(NAMESPACE) --set "image.tag=$(VERSION)" -f chart/ip-blocker/values.yaml  chart/ip-blocker
+
 
