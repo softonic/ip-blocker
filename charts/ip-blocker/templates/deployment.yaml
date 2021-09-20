@@ -45,14 +45,6 @@ spec:
               key: password
         - name: ELASTIC_ADDRESS
           value: {{ .Values.elastic.address }}
-        - name: INTERVAL_BLOCK_TIME
-          value: {{ .Values.app.intervalBlockTime | quote }}
-        - name: TTL_RULES
-          value: {{ .Values.app.intervalUnBlockTime | quote }}
-        - name: THRESHOLD_429_PER_MIN
-          value: {{ .Values.app.threshold429PerMin | quote }}
-        - name: NAMESPACE
-          value: {{ .Values.elastic.namespace | quote }}
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /secrets/credentials.json
         volumeMounts:

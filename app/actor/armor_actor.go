@@ -21,9 +21,10 @@ type GCPArmorActor struct {
 	ctx        context.Context
 	k8sProject string
 	policy     string
+	ttlRules   int
 }
 
-func NewGCPArmorActor(project string, policy string) *GCPArmorActor {
+func NewGCPArmorActor(project string, policy string, ttlRules int) *GCPArmorActor {
 
 	c, ctx := InitConnectiontoActor()
 
@@ -32,6 +33,7 @@ func NewGCPArmorActor(project string, policy string) *GCPArmorActor {
 		ctx:        ctx,
 		k8sProject: project,
 		policy:     policy,
+		ttlRules:   ttlRules,
 	}
 }
 
@@ -185,12 +187,13 @@ func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []stri
 }
 
 // GetBlockedIPsFromActorThatCanBeUnblocked: return IPs that has been blocked for more than ttlRules min
-func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor, ttlRules int) []string {
+func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 	client := g.client
 	ctx := g.ctx
 	project := g.k8sProject
 	//securityPolicy := g.policy
+	ttlRules := g.ttlRules
 
 	req := &computepb.GetSecurityPolicyRequest{
 		Project:        project,
@@ -233,13 +236,13 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor, ttlRules int) []
 
 }
 
-func (g *GCPArmorActor) UnBlockIPs(ttlRules int) error {
+func (g *GCPArmorActor) UnBlockIPs() error {
 
 	client := g.client
 	ctx := g.ctx
 	project := g.k8sProject
 
-	ips := getBlockedIPsFromActorThatCanBeUnblocked(g, ttlRules)
+	ips := getBlockedIPsFromActorThatCanBeUnblocked(g)
 
 	prios := getRuleFromIP(g, ips)
 

@@ -21,16 +21,16 @@ var (
 )
 
 type ElasticSource struct {
-	client             *elasticsearch.Client
-	namespace          string
-	threshold429PerMin int
+	client    *elasticsearch.Client
+	namespace string
+	threshold int
 }
 
-func NewElasticSource(address string, username string, password string, namespace string, threshold429PerMin int) *ElasticSource {
+func NewElasticSource(address string, username string, password string, namespace string, threshold int) *ElasticSource {
 	return &ElasticSource{
-		client:             elasticSearchInit(address, username, password),
-		namespace:          namespace,
-		threshold429PerMin: threshold429PerMin,
+		client:    elasticSearchInit(address, username, password),
+		namespace: namespace,
+		threshold: threshold,
 	}
 }
 
@@ -85,7 +85,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	namespace := s.namespace
 
-	threshold429PerMin := s.threshold429PerMin
+	threshold := s.threshold
 
 	queryString := []byte(fmt.Sprintf(`{
 	  "query": {
@@ -163,7 +163,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		ipCounter[ips]++
 	}
 
-	maxCounter := calculateCountBlockThreshold(threshold429PerMin, interval)
+	maxCounter := calculateCountBlockThreshold(threshold, interval)
 
 	return orderAndTrimIPs(ipCounter, maxCounter)
 
