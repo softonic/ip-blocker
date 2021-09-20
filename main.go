@@ -35,10 +35,6 @@ func main() {
 
 	username := os.Getenv("ELASTIC_USERNAME")
 
-	intervalBlockTime, _ := strconv.Atoi(os.Getenv("INTERVAL_BLOCK_TIME"))
-
-	ttlRules, _ := strconv.Atoi(os.Getenv("TTL_RULES"))
-
 	flag.StringVar(&project, "project", "project", "kubernetes GCP project")
 	flag.StringVar(&policy, "policy", "default", "The firewall rule that we will modify")
 	flag.StringVar(&namespace, "namespace", "istio-system", "elasticsearch k8s namespace to check 429s")
