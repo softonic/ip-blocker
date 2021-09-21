@@ -3,7 +3,6 @@ package actor
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"os"
 	"strconv"
 	"time"
@@ -57,7 +56,7 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 	req := &computepb.GetSecurityPolicyRequest{
 		Project:        g.k8sProject,
-		SecurityPolicy: "test",
+		SecurityPolicy: g.policy,
 	}
 
 	//defer client.Close()
@@ -106,7 +105,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	//defer client.Close()
 
-	actorIPs, _ := getIPsAlreadyBlockedFromRules(g, g.policy)
+	actorIPs, lastprio := getIPsAlreadyBlockedFromRules(g, g.policy)
 
 	candidateIPstoBlock := detectWhichOfTheseIPsAreNotBlocked(sourceIPs, actorIPs)
 
@@ -117,8 +116,8 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	action := "deny(403)"
 	description := strconv.FormatInt(secs, 10)
-	//priority := prio + 1
-	priority := rand.Int31n(100)
+	priority := lastprio + 1
+	//priority := rand.Int31n(100)
 	preview := true
 
 	if len(candidateIPstoBlock) > 0 {
@@ -133,7 +132,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 		req := &computepb.AddRuleSecurityPolicyRequest{
 
 			Project:        project,
-			SecurityPolicy: "test",
+			SecurityPolicy: g.policy,
 			SecurityPolicyRuleResource: &computepb.SecurityPolicyRule{
 				Action:      &action,
 				Description: &description,
@@ -191,13 +190,11 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 	client := g.client
 	ctx := g.ctx
-	project := g.k8sProject
-	//securityPolicy := g.policy
 	ttlRules := g.ttlRules
 
 	req := &computepb.GetSecurityPolicyRequest{
-		Project:        project,
-		SecurityPolicy: "test",
+		Project:        g.k8sProject,
+		SecurityPolicy: g.policy,
 	}
 
 	resp, err := client.Get(ctx, req)
@@ -255,7 +252,7 @@ func (g *GCPArmorActor) UnBlockIPs() error {
 		req := &computepb.RemoveRuleSecurityPolicyRequest{
 
 			Project:        project,
-			SecurityPolicy: "test",
+			SecurityPolicy: g.policy,
 			Priority:       &prio,
 		}
 
@@ -284,7 +281,7 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 
 	req := &computepb.GetSecurityPolicyRequest{
 		Project:        g.k8sProject,
-		SecurityPolicy: "test",
+		SecurityPolicy: g.policy,
 	}
 
 	//defer client.Close()

@@ -51,7 +51,13 @@ spec:
         volumeMounts:
         - name: credentials
           mountPath: /secrets
+{{- if ne (len .Values.extraVolumeMounts) 0 }}
+{{ toYaml .Values.extraVolumeMounts | indent 8 }}
+{{- end }}
       volumes:
       - name: credentials
         secret:
           secretName: google-credentials
+{{- if ne (len .Values.extraVolumes) 0 }}
+{{ toYaml .Values.extraVolumes | indent 6 }}
+{{- end }}

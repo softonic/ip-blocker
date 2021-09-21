@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	project, policy, namespace             string
+	project, policy, namespace, cacert     string
 	ttlRules, threshold, intervalBlockTime int
 )
 
@@ -38,10 +38,11 @@ func main() {
 	flag.IntVar(&intervalBlockTime, "intervalBlockTime", 5, "check the 429s that we returned in the last N min")
 	flag.IntVar(&ttlRules, "ttlRules", 60, "TTL in minutes of Firewall Rules. Once the ttl is exceeded, the rule is removed and the IPs are unblocked")
 	flag.IntVar(&threshold, "threshold", 5, "we will check which IPs are being throttle , with a 429 code, per min, if exceed the threshold, there will be included in a blocked rule for at least ttlRules min")
+	flag.StringVar(&cacert, "cacert", "", "If you are connecting to a ES that needs TLS, this is the ca certificate")
 
 	flag.Parse()
 
-	s := source.NewElasticSource(address, username, password, namespace, threshold)
+	s := source.NewElasticSource(address, username, password, namespace, threshold, cacert)
 	a := actor.NewGCPArmorActor(project, policy, ttlRules)
 
 	application := app.NewApp(s, a)
