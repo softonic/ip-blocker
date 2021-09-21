@@ -32,19 +32,10 @@ resources: {}
 #    cpu: 100m
 #    memory: 20Mi
 
-args:
- - -project=kubertonic
- - -policy=global-loadbalancer-rules
- - -cacert=/etc/ssl/ca/cacert.pem
+args: []
+extraVolumes: []
 
-extraVolumes:
-  - name: cacert
-    secret:
-      secretName: elastic-ca-cert
-
-extraVolumeMounts:
-  - mountPath: /etc/ssl/ca/
-    name: cacert
+extraVolumeMounts: []
 
 
 
