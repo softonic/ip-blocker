@@ -35,6 +35,18 @@ resources: {}
 args:
  - -project=kubertonic
  - -policy=global-loadbalancer-rules
+ - -cacert=/etc/ssl/ca/cacert.pem
+
+extraVolumes:
+  - name: cacert
+    secret:
+      secretName: elastic-ca-cert
+
+extraVolumeMounts:
+  - mountPath: /etc/ssl/ca/
+    name: cacert
+
+
 
 elastic:
   address: "https://host.docker.internal:9200"

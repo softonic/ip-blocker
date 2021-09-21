@@ -10,6 +10,8 @@ import (
 	"sort"
 	"time"
 
+	"io/ioutil"
+
 	"k8s.io/klog"
 
 	"github.com/elastic/go-elasticsearch/v7"
@@ -26,15 +28,21 @@ type ElasticSource struct {
 	threshold int
 }
 
-func NewElasticSource(address string, username string, password string, namespace string, threshold int) *ElasticSource {
+func NewElasticSource(address string, username string, password string, namespace string, threshold int, cacert string) *ElasticSource {
 	return &ElasticSource{
-		client:    elasticSearchInit(address, username, password),
+		client:    elasticSearchInit(address, username, password, cacert),
 		namespace: namespace,
 		threshold: threshold,
 	}
 }
 
-func elasticSearchInit(address string, username string, password string) *elasticsearch.Client {
+func elasticSearchInit(address string, username string, password string, cacert string) *elasticsearch.Client {
+
+	var cert []byte
+
+	if cacert != "" {
+		cert, _ = ioutil.ReadFile(cacert)
+	}
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{
@@ -42,7 +50,7 @@ func elasticSearchInit(address string, username string, password string) *elasti
 		},
 		Username: username,
 		Password: password,
-		//CACert:   cert,
+		CACert:   cert,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 10,
 			TLSClientConfig: &tls.Config{
@@ -162,7 +170,6 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"].(string)
 		ipCounter[ips]++
 	}
-
 
 	maxCounter := calculateCountBlockThreshold(threshold, interval)
 
