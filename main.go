@@ -5,9 +5,6 @@ import (
 	"flag"
 	_ "io/ioutil"
 	"os"
-	"strconv"
-
-	"k8s.io/klog"
 
 	"k8s.io/klog"
 

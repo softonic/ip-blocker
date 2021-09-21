@@ -15,7 +15,7 @@ type Source interface {
 
 type Actor interface {
 	BlockIPs([]IPCount) error
-	UnBlockIPs(int) error
+	UnBlockIPs() error
 }
 
 type IPCount struct {
@@ -47,7 +47,7 @@ func getIPsToChannel(listen chan []IPCount, source Source, interval int) {
 	}
 }
 
-func getBlockedIPsToChannel(exit chan bool, actor Actor, ttlRules int) {
+func getBlockedIPsToChannel(exit chan bool, actor Actor) {
 	for {
 		time.Sleep(time.Second * 60 * 10)
 
