@@ -49,14 +49,14 @@ func getIPsToChannel(listen chan []IPCount, source Source, interval int) {
 
 func getBlockedIPsToChannel(exit chan bool, actor Actor, ttlRules int) {
 	for {
-		time.Sleep(time.Second * 60 * time.Duration(ttlRules))
+		time.Sleep(time.Second * 60 * 10)
 
 		exit <- true
 
 	}
 }
 
-func (a *App) Start(intervalBlockTime int, ttlRules int) {
+func (a *App) Start(intervalBlockTime int) {
 
 	klog.Infof("Starting daemon")
 
@@ -67,7 +67,7 @@ func (a *App) Start(intervalBlockTime int, ttlRules int) {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	go getIPsToChannel(listen, a.source, intervalBlockTime)
-	go getBlockedIPsToChannel(exit, a.actor, ttlRules)
+	go getBlockedIPsToChannel(exit, a.actor)
 
 	for {
 		select {
@@ -77,7 +77,7 @@ func (a *App) Start(intervalBlockTime int, ttlRules int) {
 				klog.Errorf("\nError: %v", err)
 			}
 		case <-exit:
-			err := a.actor.UnBlockIPs(ttlRules)
+			err := a.actor.UnBlockIPs()
 			if err != nil {
 				klog.Errorf("\nError: %v", err)
 			}

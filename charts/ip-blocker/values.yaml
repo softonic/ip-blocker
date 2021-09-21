@@ -32,10 +32,9 @@ resources: {}
 #    cpu: 100m
 #    memory: 20Mi
 
-
-app:
-  intervalBlockTime: "5"
-  intervalUnBlockTime: "60"
+args:
+ - -project=kubertonic
+ - -policy=global-loadbalancer-rules
 
 elastic:
   address: "https://host.docker.internal:9200"

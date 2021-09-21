@@ -9,17 +9,19 @@ import (
 
 func TestOrderAndTrimIPsMostCounts(t *testing.T) {
 
+	threshold := 25
+
 	ipCounter := map[string]int{
 		"1.1.1.1": 1,
-		"2.2.2.2": 20,
+		"2.2.2.2": 30,
 	}
 
-	result := orderAndTrimIPs(ipCounter)
+	result := orderAndTrimIPs(ipCounter, threshold)
 
 	expectedBots := []app.IPCount{
 		{
 			IP:    "2.2.2.2",
-			Count: 20,
+			Count: 30,
 		},
 	}
 
@@ -31,63 +33,65 @@ func TestOrderAndTrimIPsMostCounts(t *testing.T) {
 
 func TestOrderAndTrimIPsNumberIPsToBlock(t *testing.T) {
 
+	threshold := 25
+
 	ipCounter := map[string]int{
-		"1.1.1.1":     30,
-		"2.2.2.2":     29,
-		"3.3.3.3":     28,
-		"4.4.4.4":     27,
-		"5.5.5.5":     26,
-		"6.6.6.6":     25,
-		"7.7.7.7":     24,
-		"8.8.8.8":     23,
-		"9.9.9.9":     22,
-		"10.10.10.10": 21,
-		"11.11.11.11": 20,
-		"12.12.12.12": 20,
+		"1.1.1.1":     42,
+		"2.2.2.2":     41,
+		"3.3.3.3":     40,
+		"4.4.4.4":     39,
+		"5.5.5.5":     38,
+		"6.6.6.6":     37,
+		"7.7.7.7":     36,
+		"8.8.8.8":     35,
+		"9.9.9.9":     34,
+		"10.10.10.10": 33,
+		"11.11.11.11": 32,
+		"12.12.12.12": 31,
 	}
 
-	result := orderAndTrimIPs(ipCounter)
+	result := orderAndTrimIPs(ipCounter, threshold)
 
 	expectedBots := []app.IPCount{
 		{
 			IP:    "1.1.1.1",
-			Count: 30,
+			Count: 42,
 		},
 		{
 			IP:    "2.2.2.2",
-			Count: 29,
+			Count: 41,
 		},
 		{
 			IP:    "3.3.3.3",
-			Count: 28,
+			Count: 40,
 		},
 		{
 			IP:    "4.4.4.4",
-			Count: 27,
+			Count: 39,
 		},
 		{
 			IP:    "5.5.5.5",
-			Count: 26,
+			Count: 38,
 		},
 		{
 			IP:    "6.6.6.6",
-			Count: 25,
+			Count: 37,
 		},
 		{
 			IP:    "7.7.7.7",
-			Count: 24,
+			Count: 36,
 		},
 		{
 			IP:    "8.8.8.8",
-			Count: 23,
+			Count: 35,
 		},
 		{
 			IP:    "9.9.9.9",
-			Count: 22,
+			Count: 34,
 		},
 		{
 			IP:    "10.10.10.10",
-			Count: 21,
+			Count: 33,
 		},
 	}
 

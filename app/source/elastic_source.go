@@ -21,12 +21,16 @@ var (
 )
 
 type ElasticSource struct {
-	client *elasticsearch.Client
+	client    *elasticsearch.Client
+	namespace string
+	threshold int
 }
 
-func NewElasticSource(address string, username string, password string) *ElasticSource {
+func NewElasticSource(address string, username string, password string, namespace string, threshold int) *ElasticSource {
 	return &ElasticSource{
-		client: elasticSearchInit(address, username, password),
+		client:    elasticSearchInit(address, username, password),
+		namespace: namespace,
+		threshold: threshold,
 	}
 }
 
@@ -79,7 +83,9 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	client := s.client
 
-	namespace := "istio-system"
+	namespace := s.namespace
+
+	threshold := s.threshold
 
 	queryString := []byte(fmt.Sprintf(`{
 	  "query": {
@@ -157,21 +163,24 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		ipCounter[ips]++
 	}
 
-	return orderAndTrimIPs(ipCounter)
+
+	maxCounter := calculateCountBlockThreshold(threshold, interval)
+
+	return orderAndTrimIPs(ipCounter, maxCounter)
 
 }
 
-func orderAndTrimIPs(ipCounter map[string]int) []app.IPCount {
+func orderAndTrimIPs(ipCounter map[string]int, maxCounter int) []app.IPCount {
 
 	bi := []app.IPCount{}
 	output := []app.IPCount{}
 
-	for i, k := range ipCounter {
+	for ip, counter := range ipCounter {
 		bot := app.IPCount{
-			IP:    i,
-			Count: int32(k),
+			IP:    ip,
+			Count: int32(counter),
 		}
-		if k > 5 {
+		if counter > maxCounter {
 			bi = append(bi, bot)
 		}
 
@@ -192,5 +201,11 @@ func orderAndTrimIPs(ipCounter map[string]int) []app.IPCount {
 	}
 
 	return output
+
+}
+
+func calculateCountBlockThreshold(threshold429PerMin int, interval int) int {
+
+	return interval * threshold429PerMin
 
 }
