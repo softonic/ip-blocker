@@ -2,17 +2,94 @@
 Daemon running in k8s that can block ideally IPs reading from a datasource where the IPs are already marked as banned and writing to a cloud firewall
 
 
-# Steps
-
-1. Daemon every 10m read from ES logging-v2 and gets the lasts IPs banned via ratelimit
-2. Order from highest to lowest ( times has been ratelimit or returned 429 ) 
-3. For each IP looks for at cloud armor if the IP is already banned and if not, ban the IP
-4. Every 1h there is another process inside the daemon that check if the expirationdate of the IP ban rules.
-  If there is an expiration, it unban the IP
-  Also set the blocked boolean field to true/false 
+[![Go Report Card](https://goreportcard.com/badge/softonic/ip-blocker)](https://goreportcard.com/report/softonic/ip-blocker)
+[![Releases](https://img.shields.io/github/release-pre/softonic/ip-blocker.svg?sort=semver)](https://github.com/softonic/ip-blocker/releases)
+[![LICENSE](https://img.shields.io/github/license/softonic/ip-blocker.svg)](https://github.com/softonic/ip-blocker/blob/master/LICENSE)
+[![DockerHub](https://img.shields.io/docker/pulls/softonic/ip-blocker.svg)](https://hub.docker.com/r/softonic/ip-blocker)
 
 
-# Flow 
+# Quick Start
+
+## Deployment
+
+### Requirements
+
+In this example we assume you already have a k8s cluster running
+
+### Deploy using kubectl 
+
+Generate secrets. Credentials to connect to ES
+
+
+```
+...
+        - name: ELASTIC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: elastic-credentials
+              key: username
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: elastic-credentials
+              key: password
+
+...
+```
+
+Generate secrets. Credentials for connecting to GCPArmor
+
+```
+...
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /secrets/credentials.json
+        volumeMounts:
+        - name: credentials
+          mountPath: /secrets
+      volumes:
+      - name: credentials
+        secret:
+          secretName: google-credentials
+...
+```
+
+
+```bash
+$ make deploy
+```
+
+You can find public image in the softonic/ip-blocker docker hub repository.
+
+### Deploy using Helm
+
+Generate secrets like kubectl install example.
+
+```bash
+$ make helm-deploy
+```
+
+
+# DEVEL ENVIRONMENT
+
+Compile the code and deploy the needed resources
+
+```bash
+$ skaffold dev
+```
+
+
+# Motivation
+
+We want to block the IPs that are crawling our site and are potentially jeopardizing our infrastructure, for 1 hour.
+We realize that some unwanted crawlings are not behaving and are gettint our site slower and sometimes unresponsive.
+
+In this first version the daemon is reading from an ElasticSearch and getting the lasts requests that returned 429 to the client.
+Once we got these IPs that are being throttle, we block the IPs in the GCP firewall called Armor.
+
+Final goal would be to someone to use this tool and be able to use other source of data other than ES and other actor different than GCP Armor.
+
+
+# Diagram
 
 
 ![Diagram Flow](flow.jpg)
