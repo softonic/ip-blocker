@@ -1,0 +1,21 @@
+name: Helm Chart
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'charts/**'
+
+jobs:
+  push-chart:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: goodsmileduck/helm-push-action@v3.2.4
+      env:
+        SOURCE_DIR: 'charts'
+        CHART_FOLDER: 'ip-blocker'
+        CHARTMUSEUM_URL: 'https://charts.softonic.io'
+        CHARTMUSEUM_USER: '${{ secrets.CHARTMUSEUM_USER }}'
+        CHARTMUSEUM_PASSWORD: '${{ secrets.CHARTMUSEUM_PASSWORD }}'
