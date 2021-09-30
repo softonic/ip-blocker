@@ -10,6 +10,8 @@ import (
 	"sort"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"io/ioutil"
 
 	"k8s.io/klog"
@@ -22,16 +24,19 @@ var (
 	r map[string]interface{}
 )
 
+type conf struct {
+	hit   string `yaml:"elasticFieldtoSearch"`
+	index string `yaml:"elasticIndex"`
+}
+
 type ElasticSource struct {
 	client    *elasticsearch.Client
-	namespace string
 	threshold int
 }
 
 func NewElasticSource(address string, username string, password string, namespace string, threshold int, cacert string) *ElasticSource {
 	return &ElasticSource{
 		client:    elasticSearchInit(address, username, password, cacert),
-		namespace: namespace,
 		threshold: threshold,
 	}
 }
@@ -87,47 +92,43 @@ func getElasticIndex(basename string) string {
 
 }
 
+func (c *conf) getConf() *conf {
+
+	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
+	if err != nil {
+		klog.Errorf("yamlFile.Get err   #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, c)
+	if err != nil {
+		klog.Fatalf("Unmarshal: %v", err)
+	}
+
+	return c
+}
+
 func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
+
+	var c conf
+	c.getConf()
 
 	client := s.client
 
-	namespace := s.namespace
-
 	threshold := s.threshold
 
-	queryString := []byte(fmt.Sprintf(`{
-	  "query": {
-		"bool": {
-		  "filter": [
-			  {
-			  "term": {
-				"kubernetes.namespace": {
-				  "value": "%s"
-				}
-			  }
-			},
-			{
-			  "match_phrase": {
-				"response_code": "429"
-			  }
-			},
-			{
-			  "range": {
-				"start_time": {
-					"gt": "now-%dm"
-				}
-			  }
-			}
-		  ]
-		}
-	  }
-	}`, namespace, interval))
+	jsonFile, err := os.Open("/etc/config/queryElastic.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer jsonFile.Close()
+
+	queryString, _ := ioutil.ReadAll(jsonFile)
 
 	ipCounter := make(map[string]int)
 
 	read := bytes.NewReader(queryString)
 
-	todayIndexName := getElasticIndex("istio-system-istio-system")
+	todayIndexName := getElasticIndex(c.index)
 
 	res, err := client.Search(
 		client.Search.WithIndex(todayIndexName),
@@ -167,7 +168,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 	)
 
 	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})["geoip"].(map[string]interface{})["ip"].(string)
+		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[c.hit].(map[string]interface{})["ip"].(string)
 		ipCounter[ips]++
 	}
 
