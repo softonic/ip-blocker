@@ -20,6 +20,7 @@ In this example we assume you already have a k8s cluster running
 
 Generate secrets. Credentials to connect to ES
 
+In order to create these secrets
 
 ```
 ...
@@ -34,12 +35,6 @@ Generate secrets. Credentials to connect to ES
               name: elastic-credentials
               key: password
 
-...
-```
-
-Generate secrets. Credentials for connecting to GCPArmor
-
-```
 ...
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /secrets/credentials.json

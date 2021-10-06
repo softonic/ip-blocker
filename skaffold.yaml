@@ -6,7 +6,6 @@ profiles:
   - name: dev
     activation:
       - command: dev
-      - kubeContext: kind-sft-dev
     build:
       local:
         push: false
@@ -18,7 +17,6 @@ profiles:
             buildArgs:
               version: 0.0.1-dev
     deploy:
-      kubeContext: kind-sft-dev
       statusCheckDeadlineSeconds: 60
       helm:
         releases:
@@ -26,7 +24,6 @@ profiles:
             chartPath: ./charts/ip-blocker
             valuesFiles:
               - ./charts/ip-blocker/values.yaml
-              - ./charts/ip-blocker/secrets.values.yaml
             recreatePods: false
             createNamespace: true
             wait: false

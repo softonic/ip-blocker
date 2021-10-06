@@ -3,11 +3,14 @@ package actor
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
 
 	"k8s.io/klog"
+
+	"gopkg.in/yaml.v2"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
@@ -21,6 +24,11 @@ type GCPArmorActor struct {
 	k8sProject string
 	policy     string
 	ttlRules   int
+}
+
+type GCPArmorConf struct {
+	preview bool   `yaml:"preview"`
+	action  string `yaml:"action"`
 }
 
 func NewGCPArmorActor(project string, policy string, ttlRules int) *GCPArmorActor {
@@ -47,6 +55,20 @@ func InitConnectiontoActor() (*compute.SecurityPoliciesClient, context.Context) 
 
 	return c, ctx
 
+}
+
+func (c *GCPArmorConf) getConf() *GCPArmorConf {
+
+	yamlFile, err := ioutil.ReadFile("/etc/config/gcp-armor-config.yaml.yaml")
+	if err != nil {
+		klog.Errorf("yamlFile.Get err   #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, c)
+	if err != nil {
+		klog.Fatalf("Unmarshal: %v", err)
+	}
+
+	return c
 }
 
 func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]string, int32) {
@@ -103,6 +125,9 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	ctx := g.ctx
 	project := g.k8sProject
 
+	var c GCPArmorConf
+	c.getConf()
+
 	//defer client.Close()
 
 	actorIPs, lastprio := getIPsAlreadyBlockedFromRules(g, g.policy)
@@ -114,11 +139,8 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	now := time.Now()
 	secs := now.Unix()
 
-	action := "deny(403)"
 	description := strconv.FormatInt(secs, 10)
 	priority := lastprio + 1
-	//priority := rand.Int31n(100)
-	preview := true
 
 	if len(candidateIPstoBlock) > 0 {
 
@@ -134,10 +156,10 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 			Project:        project,
 			SecurityPolicy: g.policy,
 			SecurityPolicyRuleResource: &computepb.SecurityPolicyRule{
-				Action:      &action,
+				Action:      &(c.action),
 				Description: &description,
 				Priority:    &priority,
-				Preview:     &preview,
+				Preview:     &(c.preview),
 				Match:       match,
 			},
 		}
