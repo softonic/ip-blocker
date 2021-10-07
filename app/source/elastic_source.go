@@ -108,8 +108,16 @@ func (c *conf) getConf() *conf {
 
 func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
-	var c conf
-	c.getConf()
+	data := make(map[interface{}]string)
+
+	yamlFile, err := ioutil.ReadFile("elastic-search-config.yaml")
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+	err = yaml.Unmarshal(yamlFile, &data)
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
 
 	client := s.client
 
@@ -120,6 +128,8 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		fmt.Println(err)
 	}
 
+	klog.Info("Connecting to index:", data["index"])
+
 	defer jsonFile.Close()
 
 	queryString, _ := ioutil.ReadAll(jsonFile)
@@ -128,7 +138,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	read := bytes.NewReader(queryString)
 
-	todayIndexName := getElasticIndex(c.index)
+	todayIndexName := getElasticIndex(data["index"])
 
 	res, err := client.Search(
 		client.Search.WithIndex(todayIndexName),
@@ -168,7 +178,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 	)
 
 	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[c.hit].(map[string]interface{})["ip"].(string)
+		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["hit"]].(map[string]interface{})["ip"].(string)
 		ipCounter[ips]++
 	}
 

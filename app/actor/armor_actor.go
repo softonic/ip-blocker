@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"fmt"
+
 	"k8s.io/klog"
 
 	"gopkg.in/yaml.v2"
@@ -125,8 +127,19 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	ctx := g.ctx
 	project := g.k8sProject
 
-	var c GCPArmorConf
+	/*var c GCPArmorConf
 	c.getConf()
+	*/
+	data := make(map[interface{}]interface{})
+
+	yamlFile, err := ioutil.ReadFile("/etc/config/gcp-armor-config.yaml")
+	if err != nil {
+		klog.Errorf("yamlFile.Get err   #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, &data)
+	if err != nil {
+		klog.Fatalf("Unmarshal: %v", err)
+	}
 
 	//defer client.Close()
 
@@ -142,6 +155,9 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	description := strconv.FormatInt(secs, 10)
 	priority := lastprio + 1
 
+	action := fmt.Sprintf("%v", data["action"])
+	preview, _ := strconv.ParseBool(fmt.Sprintf("%v", data["preview"]))
+
 	if len(candidateIPstoBlock) > 0 {
 
 		match := &computepb.SecurityPolicyRuleMatcher{
@@ -156,10 +172,10 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 			Project:        project,
 			SecurityPolicy: g.policy,
 			SecurityPolicyRuleResource: &computepb.SecurityPolicyRule{
-				Action:      &(c.action),
+				Action:      &(action),
 				Description: &description,
 				Priority:    &priority,
-				Preview:     &(c.preview),
+				Preview:     &(preview),
 				Match:       match,
 			},
 		}
