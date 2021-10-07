@@ -110,7 +110,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	data := make(map[interface{}]string)
 
-	yamlFile, err := ioutil.ReadFile("elastic-search-config.yaml")
+	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
 	if err != nil {
 		fmt.Printf("Unmarshal: %v", err)
 	}
