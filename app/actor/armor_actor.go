@@ -59,7 +59,7 @@ func InitConnectiontoActor() (*compute.SecurityPoliciesClient, context.Context) 
 
 func (c *GCPArmorConf) getConf() *GCPArmorConf {
 
-	yamlFile, err := ioutil.ReadFile("/etc/config/gcp-armor-config.yaml.yaml")
+	yamlFile, err := ioutil.ReadFile("/etc/config/gcp-armor-config.yaml")
 	if err != nil {
 		klog.Errorf("yamlFile.Get err   #%v ", err)
 	}
