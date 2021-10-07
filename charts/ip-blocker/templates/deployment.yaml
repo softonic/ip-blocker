@@ -68,6 +68,8 @@ spec:
               name: query-elastic
           - configMap:
               name: elastic-search-config
+          - configMap:
+              name: gcp-armor-config
 {{- if ne (len .Values.extraVolumes) 0 }}
 {{ toYaml .Values.extraVolumes | indent 6 }}
 {{- end }}
