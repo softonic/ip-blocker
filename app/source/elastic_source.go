@@ -138,7 +138,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	read := bytes.NewReader(queryString)
 
-	todayIndexName := getElasticIndex(data["index"])
+	todayIndexName := getElasticIndex(data["elasticIndex"])
 
 	res, err := client.Search(
 		client.Search.WithIndex(todayIndexName),
@@ -178,7 +178,7 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 	)
 
 	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["hit"]].(map[string]interface{})["ip"].(string)
+		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["elasticFieldtoSearch"]].(map[string]interface{})["ip"].(string)
 		ipCounter[ips]++
 	}
 
