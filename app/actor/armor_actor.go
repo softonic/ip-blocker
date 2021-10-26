@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"fmt"
@@ -26,6 +27,7 @@ type GCPArmorActor struct {
 	k8sProject string
 	policy     string
 	ttlRules   int
+	excludeIPs string
 }
 
 type GCPArmorConf struct {
@@ -33,7 +35,7 @@ type GCPArmorConf struct {
 	action  string `yaml:"action"`
 }
 
-func NewGCPArmorActor(project string, policy string, ttlRules int) *GCPArmorActor {
+func NewGCPArmorActor(project string, policy string, ttlRules int, excludeIPs string) *GCPArmorActor {
 
 	c, ctx := InitConnectiontoActor()
 
@@ -43,6 +45,7 @@ func NewGCPArmorActor(project string, policy string, ttlRules int) *GCPArmorActo
 		k8sProject: project,
 		policy:     policy,
 		ttlRules:   ttlRules,
+		excludeIPs: excludeIPs,
 	}
 }
 
@@ -127,9 +130,12 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	ctx := g.ctx
 	project := g.k8sProject
 
-	/*var c GCPArmorConf
-	c.getConf()
-	*/
+	var sourceIPstring []string
+
+	for _, k := range sourceIPs {
+		sourceIPstring = append(sourceIPstring, k.IP)
+	}
+
 	data := make(map[interface{}]interface{})
 
 	yamlFile, err := ioutil.ReadFile("/etc/config/gcp-armor-config.yaml")
@@ -145,7 +151,11 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	actorIPs, lastprio := getIPsAlreadyBlockedFromRules(g, g.policy)
 
-	candidateIPstoBlock := detectWhichOfTheseIPsAreNotBlocked(sourceIPs, actorIPs)
+	excludedIpsWellFormated := formatIpsfromStringtoArray(g.excludeIPs)
+
+	candidateIPstoBlock := detectWhichOfTheseIPsAreNotBlocked(sourceIPstring, actorIPs)
+
+	candidateAfterExcluded := detectWhichOfTheseIPsAreNotBlocked(candidateIPstoBlock, excludedIpsWellFormated)
 
 	versioned := computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
 
@@ -162,7 +172,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 		match := &computepb.SecurityPolicyRuleMatcher{
 			Config: &computepb.SecurityPolicyRuleMatcherConfig{
-				SrcIpRanges: candidateIPstoBlock,
+				SrcIpRanges: candidateAfterExcluded,
 			},
 			VersionedExpr: versioned,
 		}
@@ -198,7 +208,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 }
 
-func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []string) []string {
+func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []string, actorIPs []string) []string {
 
 	// compare the array of IPs of ES with the IPs of GCP armor
 
@@ -208,13 +218,13 @@ func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []app.IPCount, actorIPs []stri
 	for _, elasticIps := range sourceIPs {
 		count := 0
 		for _, armorIps := range actorIPs {
-			ipWithMaskES = elasticIps.IP + "/32"
+			ipWithMaskES = elasticIps + "/32"
 			if ipWithMaskES == armorIps {
 				count++
 			}
 		}
 		if count == 0 {
-			candidateIPsBlocked = append(candidateIPsBlocked, elasticIps.IP+"/32")
+			candidateIPsBlocked = append(candidateIPsBlocked, elasticIps+"/32")
 		}
 
 	}
@@ -363,4 +373,8 @@ func find(slice []int32, val int32) bool {
 		}
 	}
 	return false
+}
+
+func formatIpsfromStringtoArray(excludeIps string) []string {
+	return strings.Split(excludeIps, ",")
 }
