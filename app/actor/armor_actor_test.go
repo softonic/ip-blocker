@@ -32,7 +32,7 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 		"2.2.2.2/32",
 	}
 
-	result := compareIPs(elasticIPs, armorIPs)
+	result := uniqueItems(elasticIPs, armorIPs)
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expected)
