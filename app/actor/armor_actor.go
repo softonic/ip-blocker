@@ -153,9 +153,9 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	excludedIpsWellFormated := formatIpsfromStringtoArray(g.excludeIPs)
 
-	candidateIPstoBlock := detectWhichOfTheseIPsAreNotBlocked(sourceIPstring, actorIPs)
+	candidateIPstoBlock := compareIPs(sourceIPstring, actorIPs)
 
-	candidateAfterExcluded := detectWhichOfTheseIPsAreNotBlocked(candidateIPstoBlock, excludedIpsWellFormated)
+	candidateAfterExcluded := compareIPs(candidateIPstoBlock, excludedIpsWellFormated)
 
 	versioned := computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
 
@@ -208,7 +208,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 }
 
-func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []string, actorIPs []string) []string {
+func compareIPs(sourceIPs []string, exceptionsIPs []string) []string {
 
 	// compare the array of IPs of ES with the IPs of GCP armor
 
@@ -217,7 +217,7 @@ func detectWhichOfTheseIPsAreNotBlocked(sourceIPs []string, actorIPs []string) [
 
 	for _, elasticIps := range sourceIPs {
 		count := 0
-		for _, armorIps := range actorIPs {
+		for _, armorIps := range exceptionsIPs {
 			ipWithMaskES = elasticIps + "/32"
 			if ipWithMaskES == armorIps {
 				count++

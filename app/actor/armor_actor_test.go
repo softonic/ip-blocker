@@ -32,7 +32,7 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 		"2.2.2.2/32",
 	}
 
-	result := detectWhichOfTheseIPsAreNotBlocked(elasticIPs, armorIPs)
+	result := compareIPs(elasticIPs, armorIPs)
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expected)
