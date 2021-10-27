@@ -3,13 +3,11 @@ package actor
 import (
 	"reflect"
 	"testing"
-
-	"github.com/softonic/ip-blocker/app"
 )
 
 func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 
-	elasticIPs := []app.IPCount{
+	/* 	elasticIPs := []app.IPCount{
 		{
 			IP:    "1.1.1.1",
 			Count: 2,
@@ -18,6 +16,10 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 			IP:    "2.2.2.2",
 			Count: 2,
 		},
+	} */
+	elasticIPs := []string{
+		"1.1.1.1",
+		"2.2.2.2",
 	}
 
 	armorIPs := []string{
@@ -30,7 +32,7 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 		"2.2.2.2/32",
 	}
 
-	result := detectWhichOfTheseIPsAreNotBlocked(elasticIPs, armorIPs)
+	result := uniqueItems(elasticIPs, armorIPs)
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expected)
