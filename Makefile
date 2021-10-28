@@ -1,8 +1,8 @@
-IMG ?= softonic/ip-blocker:0.0.1-dev
+IMG ?= softonic/ip-blocker:0.4.1
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 BIN := ip-blocker
 PKG := github.com/softonic/ip-blocker
-VERSION ?= 0.0.1-dev
+VERSION ?= 0.4.1
 ARCH ?= amd64
 APP ?= ip-blocker
 NAMESPACE ?= ip-blocker
@@ -11,7 +11,7 @@ REPOSITORY ?= softonic/ip-blocker
 
 IMAGE := $(BIN)
 
-BUILD_IMAGE ?= golang:1.14-buster
+BUILD_IMAGE ?= golang:1.15-buster
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
