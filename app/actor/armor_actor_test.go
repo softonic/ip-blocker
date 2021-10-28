@@ -29,7 +29,7 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 	}
 
 	expected := []string{
-		"2.2.2.2/32",
+		"2.2.2.2",
 	}
 
 	result := uniqueItems(elasticIPs, armorIPs)
