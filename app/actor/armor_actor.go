@@ -130,7 +130,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	ctx := g.ctx
 	project := g.k8sProject
 
-	var sourceIPstring []string
+	var sourceIPstring, candidateWithCird []string
 
 	for _, k := range sourceIPs {
 		sourceIPstring = append(sourceIPstring, k.IP)
@@ -157,6 +157,10 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	candidateAfterExcluded := uniqueItems(candidateIPstoBlock, excludedIpsWellFormated)
 
+	for _, k := range candidateAfterExcluded {
+		candidateWithCird = append(candidateWithCird, k+"/32")
+	}
+
 	versioned := computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
 
 	now := time.Now()
@@ -172,7 +176,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 		match := &computepb.SecurityPolicyRuleMatcher{
 			Config: &computepb.SecurityPolicyRuleMatcherConfig{
-				SrcIpRanges: candidateAfterExcluded,
+				SrcIpRanges: candidateWithCird,
 			},
 			VersionedExpr: versioned,
 		}
@@ -224,7 +228,7 @@ func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 			}
 		}
 		if count == 0 {
-			candidateIPsBlocked = append(candidateIPsBlocked, elasticIps+"/32")
+			candidateIPsBlocked = append(candidateIPsBlocked, elasticIps)
 		}
 
 	}
