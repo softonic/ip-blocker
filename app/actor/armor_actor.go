@@ -212,9 +212,31 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 }
 
+// uniqueItems returns a slice with unique items
 func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 
-	// compare the array of IPs of ES with the IPs of GCP armor
+	var unique []string
+
+	for _, k := range sourceIPs {
+		if !contains(exceptionsIPs, k+"/32") {
+			unique = append(unique, k)
+		}
+	}
+
+	return unique
+
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+/* func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 
 	var ipWithMaskES string
 	candidateIPsBlocked := []string{}
@@ -235,7 +257,7 @@ func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 
 	return candidateIPsBlocked
 
-}
+} */
 
 // GetBlockedIPsFromActorThatCanBeUnblocked: return IPs that has been blocked for more than ttlRules min
 func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
