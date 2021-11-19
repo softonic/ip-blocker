@@ -200,6 +200,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 			return err
 		} else {
 			klog.Infof("Adding rule with prio: %d", priority)
+			klog.Infof("Blocked IPs: %v", candidateWithCird)
 		}
 
 		_ = resp
