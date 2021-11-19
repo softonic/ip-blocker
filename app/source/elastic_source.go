@@ -24,11 +24,6 @@ var (
 	r map[string]interface{}
 )
 
-type conf struct {
-	hit   string `yaml:"elasticFieldtoSearch"`
-	index string `yaml:"elasticIndex"`
-}
-
 type ElasticSource struct {
 	client    *elasticsearch.Client
 	threshold int
@@ -79,6 +74,7 @@ func elasticSearchInit(address string, username string, password string, cacert 
 
 }
 
+// getElasticIndex returns the index name for the current day
 func getElasticIndex(basename string) string {
 
 	now := time.Now()
@@ -92,20 +88,34 @@ func getElasticIndex(basename string) string {
 
 }
 
-func (c *conf) getConf() *conf {
+// orderAndTrimIPs returns a slice of IPs ordered by count
+// limit the output to the top n
+// limit the output to count > threshold
+func orderAndTrimIPs(ipCounter map[string]int, maxCounter int) []app.IPCount {
 
-	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
-	if err != nil {
-		klog.Errorf("yamlFile.Get err   #%v ", err)
-	}
-	err = yaml.Unmarshal(yamlFile, c)
-	if err != nil {
-		klog.Fatalf("Unmarshal: %v", err)
+	var ips []app.IPCount
+	n := 10
+
+	for ip, count := range ipCounter {
+		if count > maxCounter {
+			ips = append(ips, app.IPCount{
+				IP:    ip,
+				Count: int32(count),
+			})
+		}
 	}
 
-	return c
+	sort.Slice(ips, func(i, j int) bool {
+		return ips[i].Count > ips[j].Count
+	})
+
+	if len(ips) > n {
+		ips = ips[:n]
+	}
+
+	return ips
+
 }
-
 func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	data := make(map[interface{}]string)
@@ -185,40 +195,6 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 	maxCounter := calculateCountBlockThreshold(threshold, interval)
 
 	return orderAndTrimIPs(ipCounter, maxCounter)
-
-}
-
-func orderAndTrimIPs(ipCounter map[string]int, maxCounter int) []app.IPCount {
-
-	bi := []app.IPCount{}
-	output := []app.IPCount{}
-
-	for ip, counter := range ipCounter {
-		bot := app.IPCount{
-			IP:    ip,
-			Count: int32(counter),
-		}
-		if counter > maxCounter {
-			bi = append(bi, bot)
-		}
-
-	}
-
-	sort.Slice(bi, func(i, j int) bool {
-		return bi[i].Count > bi[j].Count
-	})
-
-	if len(bi) > 10 {
-		for i := 0; i < 10; i++ {
-			output = append(output, bi[i])
-		}
-	} else {
-		for i := 0; i < len(bi); i++ {
-			output = append(output, bi[i])
-		}
-	}
-
-	return output
 
 }
 
