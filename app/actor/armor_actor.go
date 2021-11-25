@@ -153,6 +153,8 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	excludedIpsWellFormated := formatIpsfromStringtoArray(g.excludeIPs)
 
+	klog.Infof("Excluded IPs: %v", excludedIpsWellFormated)
+
 	candidateIPstoBlock := uniqueItems(sourceIPstring, actorIPs)
 
 	candidateAfterExcluded := uniqueItems(candidateIPstoBlock, excludedIpsWellFormated)
@@ -213,31 +215,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 }
 
-// uniqueItems returns a slice with unique items
 func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
-
-	var unique []string
-
-	for _, k := range sourceIPs {
-		if !contains(exceptionsIPs, k+"/32") {
-			unique = append(unique, k)
-		}
-	}
-
-	return unique
-
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-/* func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 
 	var ipWithMaskES string
 	candidateIPsBlocked := []string{}
@@ -245,7 +223,7 @@ func contains(s []string, e string) bool {
 	for _, elasticIps := range sourceIPs {
 		count := 0
 		for _, armorIps := range exceptionsIPs {
-			ipWithMaskES = elasticIps + "/32"
+			ipWithMaskES = elasticIps
 			if ipWithMaskES == armorIps {
 				count++
 			}
@@ -258,7 +236,7 @@ func contains(s []string, e string) bool {
 
 	return candidateIPsBlocked
 
-} */
+}
 
 // GetBlockedIPsFromActorThatCanBeUnblocked: return IPs that has been blocked for more than ttlRules min
 func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {

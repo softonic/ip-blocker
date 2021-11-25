@@ -23,9 +23,9 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 	}
 
 	armorIPs := []string{
-		"1.1.1.1/32",
-		"3.3.3.3/32",
-		"4.4.4.4/32",
+		"1.1.1.1",
+		"3.3.3.3",
+		"4.4.4.4",
 	}
 
 	expected := []string{
@@ -58,9 +58,9 @@ func TestDetectWhichOfTheseIPsAreNotExcluded(t *testing.T) {
 	}
 
 	exceptionsIPs := []string{
-		"1.1.1.1/32",
-		"3.3.3.3/32",
-		"4.4.4.4/32",
+		"1.1.1.1",
+		"3.3.3.3",
+		"4.4.4.4",
 	}
 
 	expected := []string{

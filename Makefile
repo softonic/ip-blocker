@@ -1,8 +1,8 @@
-IMG ?= softonic/ip-blocker:0.4.1
+IMG ?= softonic/ip-blocker:0.4.3
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 BIN := ip-blocker
 PKG := github.com/softonic/ip-blocker
-VERSION ?= 0.4.1
+VERSION ?= 0.4.3
 ARCH ?= amd64
 APP ?= ip-blocker
 NAMESPACE ?= ip-blocker
