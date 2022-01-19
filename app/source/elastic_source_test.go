@@ -1,6 +1,7 @@
 package source
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -99,4 +100,35 @@ func TestOrderAndTrimIPsNumberIPsToBlock(t *testing.T) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expectedBots)
 	}
 
+}
+
+func TestCheckIPFromCloudProviders(t *testing.T) {
+
+	ipCounter := []app.IPCount{
+		{
+			IP:    "34.90.9.151",
+			Count: 42,
+		},
+	}
+
+	expectedIPs := []app.IPCount{
+		{
+			IP:    "34.90.9.151",
+			Count: 42,
+		},
+	}
+
+	records := []string{
+		"Google,Groningen,NL,bc.googleusercontent.com",
+	}
+
+	fmt.Println(records)
+
+	result := checkIPFromCloudProviders(ipCounter, records)
+
+	fmt.Println(result)
+
+	if !reflect.DeepEqual(expectedIPs, result) {
+		t.Errorf("Error actual = %v, and Expected = %v.", result, expectedIPs)
+	}
 }

@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+{{- range $key, $value := .Values.cloudProviders.files }}
+  {{ $key }}: |
+{{ toYaml $value | default "{}" | nindent 4 }}
+{{- end }}
+kind: ConfigMap
+metadata:
+  name: input-csv-rules-cloud-providers
+---

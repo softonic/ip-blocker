@@ -48,6 +48,34 @@ elasticSearch:
         elasticFieldtoSearch: "geoip"
   query:
     files:
+      queryElasticCloudProviders.json: 
+      {
+         "query":{
+            "bool":{
+               "filter":[
+                  {
+                     "term":{
+                        "kubernetes.namespace":{
+                           "value":"istio-system"
+                        }
+                     }
+                  },
+                  {
+                     "match_phrase":{
+                        "response_code":"200"
+                     }
+                  },
+                  {
+                     "range":{
+                        "start_time":{
+                           "gt":"now-5m"
+                        }
+                     }
+                  }
+               ]
+            }
+          }
+        }
       queryElastic.json: |
         {
          "query":{
@@ -83,7 +111,11 @@ GCPArmor:
     gcp-armor-config.yaml:
       preview: "true"
       action: "deny(403)"
-
+cloudProviders:
+  files:
+    input-csv-rules.csv:
+      #"ORG,CITY,COUNTRY,HOSTNAME"
+      ""
 
 secrets:
   Opaque:

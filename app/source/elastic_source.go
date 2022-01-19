@@ -116,49 +116,19 @@ func orderAndTrimIPs(ipCounter map[string]int, maxCounter int) []app.IPCount {
 	return ips
 
 }
-func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
-	data := make(map[interface{}]string)
-
-	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-	err = yaml.Unmarshal(yamlFile, &data)
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-
-	client := s.client
-
-	threshold := s.threshold
-
-	jsonFile, err := os.Open("/etc/config/queryElastic.json")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	klog.Info("Connecting to index:", data["index"])
-
-	defer jsonFile.Close()
-
-	queryString, _ := ioutil.ReadAll(jsonFile)
-
-	ipCounter := make(map[string]int)
-
-	read := bytes.NewReader(queryString)
-
-	todayIndexName := getElasticIndex(data["elasticIndex"])
+func elasticSearchQuery(client *elasticsearch.Client, index string, query *bytes.Reader) (map[string]interface{}, error) {
 
 	res, err := client.Search(
-		client.Search.WithIndex(todayIndexName),
-		client.Search.WithBody(read),
+		client.Search.WithIndex(index),
+		client.Search.WithBody(query),
 		client.Search.WithTrackTotalHits(true),
 		client.Search.WithPretty(),
 		client.Search.WithSize(10000),
 	)
+
 	if err != nil {
-		klog.Fatalf("Error getting response: %s", err)
+		return nil, err
 	}
 
 	defer res.Body.Close()
@@ -187,19 +157,94 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		int(r["took"].(float64)),
 	)
 
+	//r = res.Body
+
+	return r, nil
+
+}
+
+func getQuery(file string) *bytes.Reader {
+
+	jsonFile, err := os.Open(file)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer jsonFile.Close()
+
+	queryString, _ := ioutil.ReadAll(jsonFile)
+
+	read := bytes.NewReader(queryString)
+
+	return read
+
+}
+
+func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
+
+	data := make(map[interface{}]string)
+
+	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+	err = yaml.Unmarshal(yamlFile, &data)
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+
+	client := s.client
+
+	threshold := s.threshold
+
+	ipCounter := make(map[string]int)
+
+	todayIndexName := getElasticIndex(data["elasticIndex"])
+
+	read := getQuery("/etc/config/queryElastic.json")
+
+	r, err := elasticSearchQuery(client, todayIndexName, read)
+	if err != nil {
+		klog.Errorf("\nError: %v", err)
+		os.Exit(1)
+	}
+
 	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
 		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["elasticFieldtoSearch"]].(map[string]interface{})["ip"].(string)
 		ipCounter[ips]++
 	}
 
-	maxCounter := calculateCountBlockThreshold(threshold, interval)
+	maxCounter := interval * threshold
 
-	return orderAndTrimIPs(ipCounter, maxCounter)
+	listIPs429 := orderAndTrimIPs(ipCounter, maxCounter)
 
-}
+	read = getQuery("/etc/config/queryElasticCloudProviders.json")
 
-func calculateCountBlockThreshold(threshold429PerMin int, interval int) int {
+	r, err = elasticSearchQuery(client, todayIndexName, read)
+	if err != nil {
+		klog.Errorf("\nError: %v", err)
+		os.Exit(1)
+	}
 
-	return interval * threshold429PerMin
+	ipCounter = make(map[string]int)
+
+	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
+		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["elasticFieldtoSearch"]].(map[string]interface{})["ip"].(string)
+		ipCounter[ips]++
+	}
+
+	// 100 requests per IP per minute multiplied by the interval, in minutes
+	maxCounter = interval * 100
+
+	listIPsCandidateCloudProviders := orderAndTrimIPs(ipCounter, maxCounter)
+
+	records, err := transformCSVtoArray()
+	if err != nil {
+		klog.Errorf("\nError: %v", err)
+		os.Exit(1)
+	}
+	listIPsCloudProviders := checkIPFromCloudProviders(listIPsCandidateCloudProviders, records)
+
+	return append(listIPs429, listIPsCloudProviders...)
 
 }
