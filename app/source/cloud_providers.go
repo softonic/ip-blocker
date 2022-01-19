@@ -92,11 +92,11 @@ func checkIPFromCloudProviders(listIPsCloudProviders []app.IPCount, records []st
 			s := strings.Split(entry, ",")
 
 			matchOrg, _ := regexp.MatchString(s[0], cResp.Org)
+			matchCity, _ := regexp.MatchString(s[1], cResp.City)
+			matchCountry, _ := regexp.MatchString(s[2], cResp.Country)
 			matchHostname, _ := regexp.MatchString(s[3], cResp.Hostname)
-			if matchOrg && matchHostname {
+			if matchOrg && matchCity && matchCountry && matchHostname {
 				filteredIPCloudProviders = append(filteredIPCloudProviders, ipCount)
-			} else {
-				fmt.Println("Not found")
 			}
 
 		}
