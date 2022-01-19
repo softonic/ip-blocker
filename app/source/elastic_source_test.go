@@ -1,7 +1,6 @@
 package source
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -122,11 +121,7 @@ func TestCheckIPFromCloudProviders(t *testing.T) {
 		"Google,Groningen,NL,bc.googleusercontent.com",
 	}
 
-	fmt.Println(records)
-
 	result := checkIPFromCloudProviders(ipCounter, records)
-
-	fmt.Println(result)
 
 	if !reflect.DeepEqual(expectedIPs, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expectedIPs)
