@@ -44,39 +44,20 @@ elasticSearch:
   config:
     files:
       elastic-search-config.yaml:
+      queries:
+      - name: "list429"
         elasticIndex: "istio-system-istio-system"
         elasticFieldtoSearch: "geoip"
+        queryFile: "/etc/config/queryElastic429.json"
+      - name: "BlockGCP"
+        elasticIndex: "istio-system-istio-system"
+        elasticFieldtoSearch: "geoip"
+        queryFile: "/etc/config/queryElasticCityOrg.json"
+
+        
   query:
     files:
-      queryElasticCloudProviders.json: 
-      {
-         "query":{
-            "bool":{
-               "filter":[
-                  {
-                     "term":{
-                        "kubernetes.namespace":{
-                           "value":"istio-system"
-                        }
-                     }
-                  },
-                  {
-                     "match_phrase":{
-                        "response_code":"200"
-                     }
-                  },
-                  {
-                     "range":{
-                        "start_time":{
-                           "gt":"now-5m"
-                        }
-                     }
-                  }
-               ]
-            }
-          }
-        }
-      queryElastic.json: |
+      queryElastic429.json: |
         {
          "query":{
             "bool":{
@@ -104,6 +85,52 @@ elasticSearch:
             }
           }
         }
+      queryElasticCityOrg.json: |
+        {
+        	"query": {
+        		"bool": {
+        			"filter": [{
+        					"term": {
+        						"kubernetes.namespace": {
+        							"value": "istio-system"
+        						}
+        					}
+        				},
+        				{
+        					"match_phrase": {
+        						"geoip.as_org": "GOOGLE-CLOUD-PLATFORM"
+        					}
+        				},
+        				{
+        					"range": {
+        						"start_time": {
+        							"gt": "now-5m"
+        						}
+        					}
+        				},
+        				{
+        					"term": {
+        						"kubernetes.namespace": {
+        							"value": "istio-system"
+        						}
+        					}
+        				},
+        				{
+        					"match_phrase": {
+        						"geoip.city_name": "Groningen"
+        					}
+        				},
+        				{
+        					"range": {
+        						"start_time": {
+        							"gt": "now-5m"
+        						}
+        					}
+        				}
+        			]
+        		}
+        	}
+        }
   address: "https://host.docker.internal:9200"
 
 GCPArmor:
@@ -111,11 +138,7 @@ GCPArmor:
     gcp-armor-config.yaml:
       preview: "true"
       action: "deny(403)"
-cloudProviders:
-  files:
-    input-csv-rules.csv:
-      #"ORG,CITY,COUNTRY,HOSTNAME"
-      ""
+
 
 secrets:
   Opaque:

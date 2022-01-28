@@ -29,6 +29,15 @@ type ElasticSource struct {
 	threshold int
 }
 
+type ElasticConfig struct {
+	Queries []struct {
+		Name                 string `yaml:"name"`
+		ElasticIndex         string `yaml:"elasticIndex"`
+		ElasticFieldtoSearch string `yaml:"elasticFieldtoSearch"`
+		QueryFile            string `yaml:"queryFile"`
+	} `yaml:"queries"`
+}
+
 func NewElasticSource(address string, username string, password string, namespace string, threshold int, cacert string) *ElasticSource {
 	return &ElasticSource{
 		client:    elasticSearchInit(address, username, password, cacert),
@@ -182,13 +191,15 @@ func getQuery(file string) *bytes.Reader {
 
 func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
-	data := make(map[interface{}]string)
+	//data := make(map[interface{}]string)
+
+	var config ElasticConfig
 
 	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
 	if err != nil {
 		fmt.Printf("Unmarshal: %v", err)
 	}
-	err = yaml.Unmarshal(yamlFile, &data)
+	err = yaml.Unmarshal(yamlFile, &config)
 	if err != nil {
 		fmt.Printf("Unmarshal: %v", err)
 	}
@@ -199,52 +210,33 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
 	ipCounter := make(map[string]int)
 
-	todayIndexName := getElasticIndex(data["elasticIndex"])
+	var listIPCandidates []app.IPCount
 
-	read := getQuery("/etc/config/queryElastic.json")
+	//loop over all queries
 
-	r, err := elasticSearchQuery(client, todayIndexName, read)
-	if err != nil {
-		klog.Errorf("\nError: %v", err)
-		os.Exit(1)
+	for _, query := range config.Queries {
+		todayIndexName := getElasticIndex(query.ElasticIndex)
+		read := getQuery(query.QueryFile)
+
+		r, err := elasticSearchQuery(client, todayIndexName, read)
+		if err != nil {
+			klog.Errorf("\nError: %v", err)
+			os.Exit(1)
+		}
+
+		for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
+			ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[query.ElasticFieldtoSearch].(map[string]interface{})["ip"].(string)
+			ipCounter[ips]++
+		}
+
+		maxCounter := interval * threshold
+
+		listIPs := orderAndTrimIPs(ipCounter, maxCounter)
+
+		listIPCandidates = append(listIPCandidates, listIPs...)
+
 	}
 
-	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["elasticFieldtoSearch"]].(map[string]interface{})["ip"].(string)
-		ipCounter[ips]++
-	}
-
-	maxCounter := interval * threshold
-
-	listIPs429 := orderAndTrimIPs(ipCounter, maxCounter)
-
-	read = getQuery("/etc/config/queryElasticCloudProviders.json")
-
-	r, err = elasticSearchQuery(client, todayIndexName, read)
-	if err != nil {
-		klog.Errorf("\nError: %v", err)
-		os.Exit(1)
-	}
-
-	ipCounter = make(map[string]int)
-
-	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["elasticFieldtoSearch"]].(map[string]interface{})["ip"].(string)
-		ipCounter[ips]++
-	}
-
-	// 100 requests per IP per minute multiplied by the interval, in minutes
-	maxCounter = interval * 100
-
-	listIPsCandidateCloudProviders := orderAndTrimIPs(ipCounter, maxCounter)
-
-	records, err := transformCSVtoArray()
-	if err != nil {
-		klog.Errorf("\nError: %v", err)
-		os.Exit(1)
-	}
-	listIPsCloudProviders := checkIPFromCloudProviders(listIPsCandidateCloudProviders, records)
-
-	return append(listIPs429, listIPsCloudProviders...)
+	return listIPCandidates
 
 }
