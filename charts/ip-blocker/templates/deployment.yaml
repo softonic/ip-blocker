@@ -70,8 +70,6 @@ spec:
               name: elastic-search-config
           - configMap:
               name: gcp-armor-config
-          - configMap:
-              name: input-csv-rules-cloud-providers
 {{- if ne (len .Values.extraVolumes) 0 }}
 {{ toYaml .Values.extraVolumes | indent 6 }}
 {{- end }}
