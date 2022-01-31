@@ -230,8 +230,9 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
 			ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[query.ElasticFieldtoSearch].(map[string]interface{})["ip"].(string)
 			ipCounter[ips]++
-			klog.Infof("This is the ipcounter: %d", ipCounter)
 		}
+
+		klog.Infof("This is the ipcounter: %d", ipCounter)
 
 		maxCounter := interval * threshold
 
