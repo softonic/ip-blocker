@@ -29,6 +29,15 @@ type ElasticSource struct {
 	threshold int
 }
 
+type ElasticConfig struct {
+	Queries []struct {
+		Name                 string `yaml:"name"`
+		ElasticIndex         string `yaml:"elasticIndex"`
+		ElasticFieldtoSearch string `yaml:"elasticFieldtoSearch"`
+		QueryFile            string `yaml:"queryFile"`
+	} `yaml:"queries"`
+}
+
 func NewElasticSource(address string, username string, password string, namespace string, threshold int, cacert string) *ElasticSource {
 	return &ElasticSource{
 		client:    elasticSearchInit(address, username, password, cacert),
@@ -116,49 +125,19 @@ func orderAndTrimIPs(ipCounter map[string]int, maxCounter int) []app.IPCount {
 	return ips
 
 }
-func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 
-	data := make(map[interface{}]string)
-
-	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-	err = yaml.Unmarshal(yamlFile, &data)
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-
-	client := s.client
-
-	threshold := s.threshold
-
-	jsonFile, err := os.Open("/etc/config/queryElastic.json")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	klog.Info("Connecting to index:", data["index"])
-
-	defer jsonFile.Close()
-
-	queryString, _ := ioutil.ReadAll(jsonFile)
-
-	ipCounter := make(map[string]int)
-
-	read := bytes.NewReader(queryString)
-
-	todayIndexName := getElasticIndex(data["elasticIndex"])
+func elasticSearchQuery(client *elasticsearch.Client, index string, query *bytes.Reader) (map[string]interface{}, error) {
 
 	res, err := client.Search(
-		client.Search.WithIndex(todayIndexName),
-		client.Search.WithBody(read),
+		client.Search.WithIndex(index),
+		client.Search.WithBody(query),
 		client.Search.WithTrackTotalHits(true),
 		client.Search.WithPretty(),
 		client.Search.WithSize(10000),
 	)
+
 	if err != nil {
-		klog.Fatalf("Error getting response: %s", err)
+		return nil, err
 	}
 
 	defer res.Body.Close()
@@ -187,19 +166,77 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		int(r["took"].(float64)),
 	)
 
-	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[data["elasticFieldtoSearch"]].(map[string]interface{})["ip"].(string)
-		ipCounter[ips]++
-	}
+	//r = res.Body
 
-	maxCounter := calculateCountBlockThreshold(threshold, interval)
-
-	return orderAndTrimIPs(ipCounter, maxCounter)
+	return r, nil
 
 }
 
-func calculateCountBlockThreshold(threshold429PerMin int, interval int) int {
+func getQuery(file string) *bytes.Reader {
 
-	return interval * threshold429PerMin
+	jsonFile, err := os.Open(file)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer jsonFile.Close()
+
+	queryString, _ := ioutil.ReadAll(jsonFile)
+
+	read := bytes.NewReader(queryString)
+
+	return read
+
+}
+
+func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
+
+	//data := make(map[interface{}]string)
+
+	var config ElasticConfig
+
+	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+	err = yaml.Unmarshal(yamlFile, &config)
+	if err != nil {
+		fmt.Printf("Unmarshal: %v", err)
+	}
+
+	client := s.client
+
+	threshold := s.threshold
+
+	ipCounter := make(map[string]int)
+
+	var listIPCandidates []app.IPCount
+
+	//loop over all queries
+
+	for _, query := range config.Queries {
+		todayIndexName := getElasticIndex(query.ElasticIndex)
+		read := getQuery(query.QueryFile)
+
+		r, err := elasticSearchQuery(client, todayIndexName, read)
+		if err != nil {
+			klog.Errorf("\nError: %v", err)
+			os.Exit(1)
+		}
+
+		for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
+			ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[query.ElasticFieldtoSearch].(map[string]interface{})["ip"].(string)
+			ipCounter[ips]++
+		}
+
+		maxCounter := interval * threshold
+
+		listIPs := orderAndTrimIPs(ipCounter, maxCounter)
+
+		listIPCandidates = append(listIPCandidates, listIPs...)
+
+	}
+
+	return listIPCandidates
 
 }

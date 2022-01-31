@@ -44,38 +44,24 @@ elasticSearch:
   config:
     files:
       elastic-search-config.yaml:
-        elasticIndex: "istio-system-istio-system"
-        elasticFieldtoSearch: "geoip"
-  query:
-    files:
-      queryElastic.json: |
-        {
-         "query":{
-            "bool":{
-               "filter":[
-                  {
-                     "term":{
-                        "kubernetes.namespace":{
-                           "value":"istio-system"
-                        }
-                     }
-                  },
-                  {
-                     "match_phrase":{
-                        "response_code":"429"
-                     }
-                  },
-                  {
-                     "range":{
-                        "start_time":{
-                           "gt":"now-5m"
-                        }
-                     }
-                  }
-               ]
-            }
-          }
-        }
+        queries: []
+# Example
+#- name: "list429"
+#  elasticIndex: "test"
+#  elasticFieldtoSearch: "geoip"
+#  queryFile: "/etc/config/queryElastic429.json"
+#- name: "BlockGCP"
+#  elasticIndex: "test"
+#  elasticFieldtoSearch: "geoip"
+#  queryFile: "/etc/config/queryElasticCityOrg.json"
+
+        
+#query:
+#  files:
+#    queryElastic429.json: |
+#      {}
+#    queryElasticCityOrg.json: |
+#      {}
   address: "https://host.docker.internal:9200"
 
 GCPArmor:
