@@ -215,6 +215,9 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 	//loop over all queries
 
 	for _, query := range config.Queries {
+
+		var listIPs []app.IPCount
+
 		todayIndexName := getElasticIndex(query.ElasticIndex)
 		read := getQuery(query.QueryFile)
 
@@ -227,11 +230,16 @@ func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
 		for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
 			ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[query.ElasticFieldtoSearch].(map[string]interface{})["ip"].(string)
 			ipCounter[ips]++
+			klog.Infof("This is the ipcounter: %d", ipCounter)
 		}
 
 		maxCounter := interval * threshold
 
-		listIPs := orderAndTrimIPs(ipCounter, maxCounter)
+		klog.Infof("This is the counter: %d", maxCounter)
+
+		listIPs = orderAndTrimIPs(ipCounter, maxCounter)
+
+		klog.Infof("These are the listIPs after orderAndTrim: %v", listIPs)
 
 		listIPCandidates = append(listIPCandidates, listIPs...)
 
