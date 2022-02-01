@@ -102,7 +102,7 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 	for _, singleRule := range resp.Rules {
 
-		if *singleRule.Action != "allow" {
+		if *singleRule.Action != "allow" && singleRule.Match.Config.SrcIpRanges != nil {
 
 			sourceIps = computepb.SecurityPolicyRuleMatcherConfig{
 				SrcIpRanges: singleRule.Match.Config.SrcIpRanges,
