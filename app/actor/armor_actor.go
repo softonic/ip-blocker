@@ -201,6 +201,8 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	candidateAfterExcluded := uniqueItems(candidateIPstoBlock, excludedIpsWellFormated)
 
+	candidateAfterExcluded = removeDuplicateStr(candidateAfterExcluded)
+
 	for _, k := range candidateAfterExcluded {
 		candidateWithCird = append(candidateWithCird, k+"/32")
 	}
@@ -255,6 +257,18 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	return nil
 
+}
+
+func removeDuplicateStr(strSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
 }
 
 func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
