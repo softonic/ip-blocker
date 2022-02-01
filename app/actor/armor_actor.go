@@ -233,10 +233,20 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 					return err
 				} else {
 					klog.Infof("Adding rule with prio: %d", priority)
-					klog.Infof("Blocked IPs: %v", candidateWithCird)
+					klog.Infof("Blocked IPs: %v", candidateWithCird[i:j])
 				}
 			}
 
+		} else {
+			req := buildQueryObjectArmor(candidateWithCird, project, g.policy, action, description, priority, preview)
+			err := executeQueryArmor(*client, req, ctx)
+			if err != nil {
+				klog.Error("\nError: ", err)
+				return err
+			} else {
+				klog.Infof("Adding rule with prio: %d", priority)
+				klog.Infof("Blocked IPs: %v", candidateWithCird)
+			}
 		}
 
 		return nil
