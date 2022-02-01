@@ -124,6 +124,48 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 }
 
+func buildQueryObjectArmor(blockStringArray []string, project string, policy string, action string, description string, priority int32, preview bool) *computepb.AddRuleSecurityPolicyRequest {
+
+	versioned := computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
+
+	match := &computepb.SecurityPolicyRuleMatcher{
+		Config: &computepb.SecurityPolicyRuleMatcherConfig{
+			SrcIpRanges: blockStringArray,
+		},
+		VersionedExpr: versioned,
+	}
+
+	req := &computepb.AddRuleSecurityPolicyRequest{
+
+		Project:        project,
+		SecurityPolicy: policy,
+		SecurityPolicyRuleResource: &computepb.SecurityPolicyRule{
+			Action:      &(action),
+			Description: &description,
+			Priority:    &priority,
+			Preview:     &(preview),
+			Match:       match,
+		},
+	}
+
+	return req
+
+}
+
+func executeQueryArmor(client compute.SecurityPoliciesClient, req *computepb.AddRuleSecurityPolicyRequest, ctx context.Context) error {
+
+	resp, err := client.AddRule(ctx, req)
+	if err != nil {
+		klog.Error("\nError: ", err)
+		return err
+	}
+
+	_ = resp
+
+	return nil
+
+}
+
 func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	client := g.client
@@ -163,8 +205,6 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 		candidateWithCird = append(candidateWithCird, k+"/32")
 	}
 
-	versioned := computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
-
 	now := time.Now()
 	secs := now.Unix()
 
@@ -176,36 +216,28 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	if len(candidateIPstoBlock) > 0 {
 
-		match := &computepb.SecurityPolicyRuleMatcher{
-			Config: &computepb.SecurityPolicyRuleMatcherConfig{
-				SrcIpRanges: candidateWithCird,
-			},
-			VersionedExpr: versioned,
+		if len(candidateWithCird) > 10 {
+
+			var j int
+			for i := 0; i < len(candidateWithCird); i += 10 {
+				j += 10
+				if j > len(candidateWithCird) {
+					j = len(candidateWithCird)
+				}
+				// do what do you want to with the sub-slice
+				fmt.Println(candidateWithCird[i:j])
+				req := buildQueryObjectArmor(candidateWithCird[i:j], project, g.policy, action, description, priority, preview)
+				err := executeQueryArmor(*client, req, ctx)
+				if err != nil {
+					klog.Error("\nError: ", err)
+					return err
+				} else {
+					klog.Infof("Adding rule with prio: %d", priority)
+					klog.Infof("Blocked IPs: %v", candidateWithCird)
+				}
+			}
+
 		}
-
-		req := &computepb.AddRuleSecurityPolicyRequest{
-
-			Project:        project,
-			SecurityPolicy: g.policy,
-			SecurityPolicyRuleResource: &computepb.SecurityPolicyRule{
-				Action:      &(action),
-				Description: &description,
-				Priority:    &priority,
-				Preview:     &(preview),
-				Match:       match,
-			},
-		}
-
-		resp, err := client.AddRule(ctx, req)
-		if err != nil {
-			klog.Error("\nError: ", err)
-			return err
-		} else {
-			klog.Infof("Adding rule with prio: %d", priority)
-			klog.Infof("Blocked IPs: %v", candidateWithCird)
-		}
-
-		_ = resp
 
 		return nil
 
