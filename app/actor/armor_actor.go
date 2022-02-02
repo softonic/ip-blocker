@@ -329,6 +329,13 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 	for _, singleRule := range resp.Rules {
 
+		match := false
+		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
+
+		if match {
+			continue
+		}
+
 		// && singleRule.Match.VersionedExpr == computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
 
 		if *singleRule.Action != "allow" && *singleRule.Match.VersionedExpr == 70925961 {
@@ -414,6 +421,13 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 	}
 
 	for _, singleRule := range resp.Rules {
+
+		match := false
+		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
+
+		if match {
+			continue
+		}
 
 		if *singleRule.Action != "allow" && *singleRule.Match.VersionedExpr == 70925961 {
 
