@@ -102,7 +102,7 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 	for _, singleRule := range resp.Rules {
 
-		if *singleRule.Action != "allow" {
+		if *singleRule.Action != "allow" && singleRule.Match.Config.SrcIpRanges != nil {
 
 			sourceIps = computepb.SecurityPolicyRuleMatcherConfig{
 				SrcIpRanges: singleRule.Match.Config.SrcIpRanges,
@@ -280,7 +280,7 @@ func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 		count := 0
 		for _, armorIps := range exceptionsIPs {
 			ipWithMaskES = elasticIps
-			if ipWithMaskES == armorIps {
+			if ipWithMaskES == armorIps || ipWithMaskES == armorIps+"/32" || ipWithMaskES+"/32" == armorIps {
 				count++
 			}
 		}

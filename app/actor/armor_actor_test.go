@@ -20,6 +20,7 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 	elasticIPs := []string{
 		"1.1.1.1",
 		"2.2.2.2",
+		"2.2.2.2",
 	}
 
 	armorIPs := []string{
@@ -33,6 +34,8 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 	}
 
 	result := uniqueItems(elasticIPs, armorIPs)
+
+	result = removeDuplicateStr(result)
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expected)
@@ -55,6 +58,7 @@ func TestDetectWhichOfTheseIPsAreNotExcluded(t *testing.T) {
 	elasticIPs := []string{
 		"1.1.1.1",
 		"2.2.2.2",
+		"2.2.2.2",
 	}
 
 	exceptionsIPs := []string{
@@ -68,6 +72,8 @@ func TestDetectWhichOfTheseIPsAreNotExcluded(t *testing.T) {
 	}
 
 	result := uniqueItems(elasticIPs, exceptionsIPs)
+
+	result = removeDuplicateStr(result)
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expected)
