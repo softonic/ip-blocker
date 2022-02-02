@@ -280,7 +280,7 @@ func uniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 		count := 0
 		for _, armorIps := range exceptionsIPs {
 			ipWithMaskES = elasticIps
-			if ipWithMaskES == armorIps {
+			if ipWithMaskES == armorIps || ipWithMaskES == armorIps+"/32" || ipWithMaskES+"/32" == armorIps {
 				count++
 			}
 		}
