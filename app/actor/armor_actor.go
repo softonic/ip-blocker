@@ -110,8 +110,6 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 			continue
 		}
 
-		klog.Infof("\nRule Desc: %s", *singleRule.Description)
-
 		if *singleRule.Action != "allow" && *singleRule.Match.VersionedExpr == 70925961 {
 
 			sourceIps = computepb.SecurityPolicyRuleMatcherConfig{
