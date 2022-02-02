@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -102,7 +103,14 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 	for _, singleRule := range resp.Rules {
 
-		if *singleRule.Action != "allow" && singleRule.Match.Config.SrcIpRanges != nil {
+		match := false
+		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
+
+		if match {
+			continue
+		}
+
+		if *singleRule.Action != "allow" && *singleRule.Match.VersionedExpr == 70925961 {
 
 			sourceIps = computepb.SecurityPolicyRuleMatcherConfig{
 				SrcIpRanges: singleRule.Match.Config.SrcIpRanges,
@@ -319,7 +327,16 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 	for _, singleRule := range resp.Rules {
 
-		if *singleRule.Action != "allow" {
+		match := false
+		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
+
+		if match {
+			continue
+		}
+
+		// && singleRule.Match.VersionedExpr == computepb.SecurityPolicyRuleMatcher_SRC_IPS_V1.Enum()
+
+		if *singleRule.Action != "allow" && *singleRule.Match.VersionedExpr == 70925961 {
 
 			n, err := strconv.ParseInt(*singleRule.Description, 10, 64)
 			if err != nil {
@@ -403,7 +420,14 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 
 	for _, singleRule := range resp.Rules {
 
-		if *singleRule.Action != "allow" {
+		match := false
+		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
+
+		if match {
+			continue
+		}
+
+		if *singleRule.Action != "allow" && *singleRule.Match.VersionedExpr == 70925961 {
 
 			for _, k := range singleRule.Match.Config.SrcIpRanges {
 				for _, m := range ips {
