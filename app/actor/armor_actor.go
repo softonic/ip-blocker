@@ -104,9 +104,10 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 	for _, singleRule := range resp.Rules {
 
 		match := false
-		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
 
-		if match {
+		match, _ = regexp.MatchString("[0-9]{10}", *singleRule.Description)
+
+		if !match {
 			continue
 		}
 
@@ -328,9 +329,9 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 	for _, singleRule := range resp.Rules {
 
 		match := false
-		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
+		match, _ = regexp.MatchString("[0-9]{10}", *singleRule.Description)
 
-		if match {
+		if !match {
 			continue
 		}
 
@@ -421,9 +422,9 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 	for _, singleRule := range resp.Rules {
 
 		match := false
-		match, _ = regexp.MatchString("Google suggested rule for attack ID", *singleRule.Description)
+		match, _ = regexp.MatchString("[0-9]{10}", *singleRule.Description)
 
-		if match {
+		if !match {
 			continue
 		}
 
