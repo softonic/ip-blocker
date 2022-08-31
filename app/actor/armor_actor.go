@@ -129,6 +129,10 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 	}
 
+	if lastPriority == 0 {
+		lastPriority = 1000
+	}
+
 	return ips, lastPriority
 
 }
