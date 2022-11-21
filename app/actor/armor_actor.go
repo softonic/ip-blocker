@@ -223,7 +223,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	now := time.Now()
 	secs := now.Unix()
 
-	description := strconv.FormatInt(secs, 10)
+	description := "ipblocker:" + strconv.FormatInt(secs, 10)
 	priority := lastprio + 1
 
 	action := fmt.Sprintf("%v", data["action"])
