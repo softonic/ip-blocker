@@ -105,7 +105,7 @@ func getIPsAlreadyBlockedFromRules(g *GCPArmorActor, securityPolicy string) ([]s
 
 		match := false
 
-		match, _ = regexp.MatchString("[0-9]{10}", *singleRule.Description)
+		match, _ = regexp.MatchString("ipblocker:[0-9]{10}", *singleRule.Description)
 
 		if !match {
 			continue
@@ -333,7 +333,7 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 	for _, singleRule := range resp.Rules {
 
 		match := false
-		match, _ = regexp.MatchString("[0-9]{10}", *singleRule.Description)
+		match, _ = regexp.MatchString("ipblocker:[0-9]{10}", *singleRule.Description)
 
 		if !match {
 			continue
@@ -343,7 +343,8 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 		if *singleRule.Action != "allow" && *singleRule.Match.VersionedExpr == 70925961 {
 
-			n, err := strconv.ParseInt(*singleRule.Description, 10, 64)
+			unixTimeStampFromDescString := extractFromDescription(*singleRule.Description)
+			n, err := strconv.ParseInt(unixTimeStampFromDescString, 10, 64)
 			if err != nil {
 				continue
 			}
@@ -362,6 +363,13 @@ func getBlockedIPsFromActorThatCanBeUnblocked(g *GCPArmorActor) []string {
 
 	return ips
 
+}
+
+func extractFromDescription(description string) string {
+	stringToParse := "ipblocker:"
+	reg := regexp.MustCompile(stringToParse)
+	res := reg.ReplaceAllString(description, "${1}")
+	return res
 }
 
 func (g *GCPArmorActor) UnBlockIPs() error {
@@ -426,7 +434,7 @@ func getRuleFromIP(g *GCPArmorActor, ips []string) []int32 {
 	for _, singleRule := range resp.Rules {
 
 		match := false
-		match, _ = regexp.MatchString("[0-9]{10}", *singleRule.Description)
+		match, _ = regexp.MatchString("ipblocker:[0-9]{10}", *singleRule.Description)
 
 		if !match {
 			continue
