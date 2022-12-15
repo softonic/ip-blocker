@@ -47,7 +47,11 @@ spec:
         - name: ELASTIC_ADDRESS
           value: {{ .Values.elasticSearch.address }}
         - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /secrets/credentials.json
+          value: /secrets/private_key
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - name: credentials
           mountPath: /secrets
@@ -59,7 +63,7 @@ spec:
       volumes:
       - name: credentials
         secret:
-          secretName: google-credentials
+          secretName: ip-blocker-key
       - name: commonconfig-volume
         projected:
           defaultMode: 420
