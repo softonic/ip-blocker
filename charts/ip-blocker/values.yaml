@@ -65,6 +65,7 @@ elasticSearch:
   address: "https://host.docker.internal:9200"
 
 GCPArmor:
+  credentialsName: ip-blocker
   files:
     gcp-armor-config.yaml:
       preview: "true"

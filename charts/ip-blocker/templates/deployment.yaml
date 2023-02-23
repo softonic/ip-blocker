@@ -63,7 +63,7 @@ spec:
       volumes:
       - name: credentials
         secret:
-          secretName: ip-blocker-key
+          secretName: {{ .Values.GCPArmor.credentialsName }}
       - name: commonconfig-volume
         projected:
           defaultMode: 420
