@@ -88,3 +88,19 @@ Final goal would be to someone to use this tool and be able to use other source 
 
 
 ![Diagram Flow](flow.jpg)
+
+
+```
+graph LR
+
+    A[Start Golang Daemon] --> B(Initialize App, ElasticSource, and GCPArmorActor)
+    B --> C(Start App)
+    C -->|Run Goroutines| D1(Fetch IPs from Elasticsearch)
+    C -->|Run Goroutines| D2(Manage Blocked IPs)
+    D1 --> E1(Interact with GCPArmorActor)
+    E1 --> E2(Block IPs using Google Cloud Armor)
+    D2 --> F1(Interact with GCPArmorActor)
+    F1 --> F2(Unblock IPs using Google Cloud Armor)
+    C --> G(Listen for Interrupt Signal)
+    G --> H[Stop Golang Daemon]
+```
