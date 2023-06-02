@@ -256,11 +256,23 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 			req := buildQueryObjectArmor(candidateWithCird, project, g.policy, action, description, priority, preview)
 			err := executeQueryArmor(*client, req, ctx)
 			if err != nil {
-				klog.Error("\nError: ", err)
-				return err
-			} else {
-				klog.Infof("Adding rule with prio: %d", priority)
-				klog.Infof("Blocked IPs: %v", candidateWithCird)
+				klog.Info("\nError: ", err)
+				// reexecute the query with prio + 1 if the prio is already used
+				if strings.Contains(err.Error(), "Cannot have rules with the same priorities") {
+					priority = priority + 1
+					req := buildQueryObjectArmor(candidateWithCird, project, g.policy, action, description, priority, preview)
+					err := executeQueryArmor(*client, req, ctx)
+					if err != nil {
+						klog.Error("\nError: ", err)
+						return err
+					} else {
+						klog.Infof("Adding rule with prio: %d", priority)
+						klog.Infof("Blocked IPs: %v", candidateWithCird)
+					}
+				} else {
+					klog.Infof("Adding rule with prio: %d", priority)
+					klog.Infof("Blocked IPs: %v", candidateWithCird)
+				}
 			}
 		}
 
