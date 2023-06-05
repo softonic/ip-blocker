@@ -1,12 +1,5 @@
 package utils
 
-import (
-	"errors"
-	"strings"
-
-	"k8s.io/klog"
-)
-
 // This function is used to remove duplicates
 func RemoveDuplicateStr(strSlice []string) []string {
 	allKeys := make(map[string]bool)
@@ -52,15 +45,4 @@ func UniqueItems(sourceIPs []string, exceptionsIPs []string) []string {
 
 	return candidateIPsBlocked
 
-}
-
-func ConvertCSVToArray(excludeIps string) ([]string, error) {
-
-	listIPs := strings.Split(excludeIps, ",")
-	// if returns an empty slice, it means that the excludeIps is empty
-	if listIPs == nil && excludeIps != "" {
-		klog.Error("Error parsing excludeIps")
-		return nil, errors.New("Error parsing excludeIps")
-	}
-	return listIPs, nil
 }

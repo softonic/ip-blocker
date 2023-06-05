@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/softonic/ip-blocker/app"
-	"github.com/softonic/ip-blocker/app/utils"
+	"github.com/softonic/ip-blocker/app/actor/utils"
 )
 
 type GCPArmorActor struct {
@@ -55,7 +55,7 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	}
 
 	ipGetter := NewIPGetter(g)
-	actorIPs, err := ipGetter.GetBlockedIPs()
+	alreadyBlockedIPs, err := ipGetter.GetBlockedIPs(rules)
 	if err != nil {
 		klog.Error("\nError: ", err)
 		return err
@@ -63,13 +63,14 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
 	lastprio := getLastPriority(rules)
 
-	excludedIpsWellFormated, err := utils.ConvertCSVToArray(g.ActorConfig.ExcludeIPs)
+	excludedIPsinArray, err := utils.ConvertCSVToArray(g.ActorConfig.ExcludeIPs)
 	if err != nil {
 		klog.Error("\nError with exclude IPs function: ", err)
 		return err
 	}
 
-	candidateIPsToBlock := getCandidateIPsToBlock(sourceIPstring, actorIPs, excludedIpsWellFormated)
+	handler := utils.UtilsIPListHandler{}
+	candidateIPsToBlock := getCandidateIPsToBlock(handler, sourceIPstring, alreadyBlockedIPs, excludedIPsinArray)
 
 	if len(candidateIPsToBlock) == 0 {
 		return nil

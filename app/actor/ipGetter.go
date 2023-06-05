@@ -1,10 +1,8 @@
 package actor
 
 import (
-	"github.com/softonic/ip-blocker/app/utils"
+	"github.com/softonic/ip-blocker/app/actor/utils"
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
-
-	"k8s.io/klog"
 )
 
 type IPGetter struct {
@@ -15,18 +13,12 @@ func NewIPGetter(actor *GCPArmorActor) *IPGetter {
 	return &IPGetter{actor: actor}
 }
 
-func (g *IPGetter) GetBlockedIPs() ([]string, error) {
+// GetIPsToBlock: this function will get the IPs already blocked
+func (g *IPGetter) GetBlockedIPs(rules []*computepb.SecurityPolicyRule) ([]string, error) {
 
 	var sourceIps computepb.SecurityPolicyRuleMatcherConfig
 
 	var ips []string
-
-	RulesGetter := NewRulesGetter(g.actor)
-	rules, err := RulesGetter.GetSecurityRules()
-	if err != nil {
-		klog.Error("\nError: ", err)
-		return nil, err
-	}
 
 	for _, singleRule := range rules {
 
@@ -63,14 +55,19 @@ func getLastPriority(rules []*computepb.SecurityPolicyRule) int32 {
 
 }
 
-func getCandidateIPsToBlock(sourceIPs, actorIPs, excludedIPs []string) []string {
-	candidateIPsToBlock := utils.UniqueItems(sourceIPs, actorIPs)
-	candidateAfterExcluded := utils.UniqueItems(candidateIPsToBlock, excludedIPs)
-	candidateAfterExcluded = utils.RemoveDuplicateStr(candidateAfterExcluded)
+func getCandidateIPsToBlock(handler utils.IPListHandler, candidateIPs, alreadyBlockedIPs, excludedIPs []string) []string {
+	candidateIPs = handler.UniqueItems(candidateIPs, alreadyBlockedIPs)
+	candidateAfterExcluded := handler.UniqueItems(candidateIPs, excludedIPs)
+	candidateAfterExcluded = handler.RemoveDuplicateStr(candidateAfterExcluded)
 
-	var candidateWithCidr []string
-	for _, k := range candidateAfterExcluded {
-		candidateWithCidr = append(candidateWithCidr, k+"/32")
+	return addCidrMaskToIPs(candidateAfterExcluded)
+}
+
+// This function add the cidr mask to the IPs
+func addCidrMaskToIPs(ips []string) []string {
+	var ipsWithCidr []string
+	for _, k := range ips {
+		ipsWithCidr = append(ipsWithCidr, k+"/32")
 	}
-	return candidateWithCidr
+	return ipsWithCidr
 }
