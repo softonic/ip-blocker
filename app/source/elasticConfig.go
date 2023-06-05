@@ -13,7 +13,6 @@ type SourceConfig struct {
 	Address   string
 	Username  string
 	Password  string
-	Namespace string
 	Threshold int
 	CACert    string
 }

@@ -39,7 +39,8 @@ func NewGCPArmorActor(config *ActorConfig) (*GCPArmorActor, error) {
 	}, nil
 }
 
-func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
+// GetIPsToBlock: this function will get the IPs candidate to Block by BlockIPs function
+func (g *GCPArmorActor) getBlockIPs(sourceIPs []app.IPCount) ([]string, int32, error) {
 
 	var sourceIPstring []string
 
@@ -51,14 +52,14 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	rules, err := RulesGetter.GetSecurityRules()
 	if err != nil {
 		klog.Error("\nError: ", err)
-		return err
+		return nil, 0, err
 	}
 
 	ipGetter := NewIPGetter(g)
 	alreadyBlockedIPs, err := ipGetter.GetBlockedIPs(rules)
 	if err != nil {
 		klog.Error("\nError: ", err)
-		return err
+		return nil, 0, err
 	}
 
 	lastprio := getLastPriority(rules)
@@ -66,24 +67,58 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	excludedIPsinArray, err := utils.ConvertCSVToArray(g.ActorConfig.ExcludeIPs)
 	if err != nil {
 		klog.Error("\nError with exclude IPs function: ", err)
-		return err
+		return nil, 0, err
 	}
 
 	handler := utils.UtilsIPListHandler{}
 	candidateIPsToBlock := getCandidateIPsToBlock(handler, sourceIPstring, alreadyBlockedIPs, excludedIPsinArray)
 
 	if len(candidateIPsToBlock) == 0 {
-		return nil
+		return nil, 0, nil
 	}
+
+	return candidateIPsToBlock, lastprio, nil
+
+}
+
+// BlockIPs: this function will block the IPs
+func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
+
+	candidateIPsToBlock, lastprio, err := g.getBlockIPs(sourceIPs)
+	if err != nil {
+		return err
+	}
+
+	description := setDescriptionForNewRules()
+
+	priority := lastprio + 1
+
+	action := fmt.Sprintf("%v", conf.Data["action"])
+	preview, _ := strconv.ParseBool(fmt.Sprintf("%v", conf.Data["preview"]))
+
+	err = addNewFirewallRules(g, candidateIPsToBlock, priority, action, description, preview)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+// this function will compute the timestamp to be used in the description of the new rules
+func setDescriptionForNewRules() string {
 
 	now := time.Now()
 	secs := now.Unix()
 
 	description := "ipblocker:" + strconv.FormatInt(secs, 10)
-	priority := lastprio + 1
 
-	action := fmt.Sprintf("%v", conf.Data["action"])
-	preview, _ := strconv.ParseBool(fmt.Sprintf("%v", conf.Data["preview"]))
+	return description
+
+}
+
+// this function will add the new rules to GCPArmor
+func addNewFirewallRules(g *GCPArmorActor, candidateIPsToBlock []string, priority int32, action string, description string, preview bool) error {
 
 	chunkSize := 10
 	for i := 0; i < len(candidateIPsToBlock); i += chunkSize {
@@ -104,6 +139,11 @@ func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 	}
 
 	return nil
+}
+
+func getFieldFromData(confData string) interface{} {
+
+	return fmt.Sprintf("%v", conf.Data[confData])
 
 }
 
