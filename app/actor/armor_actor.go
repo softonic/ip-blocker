@@ -39,8 +39,8 @@ func NewGCPArmorActor(config *ActorConfig) (*GCPArmorActor, error) {
 	}, nil
 }
 
-// GetIPsToBlock: this function will get the IPs candidate to Block by BlockIPs function
-func (g *GCPArmorActor) getBlockIPs(sourceIPs []app.IPCount) ([]string, int32, error) {
+// getPrepareToBlockIPs: this function will get the IPs candidate to Block by BlockIPs function
+func (g *GCPArmorActor) getPrepareToBlockIPs(sourceIPs []app.IPCount) ([]string, int32, error) {
 
 	var sourceIPstring []string
 
@@ -84,7 +84,7 @@ func (g *GCPArmorActor) getBlockIPs(sourceIPs []app.IPCount) ([]string, int32, e
 // BlockIPs: this function will block the IPs
 func (g *GCPArmorActor) BlockIPs(sourceIPs []app.IPCount) error {
 
-	candidateIPsToBlock, lastprio, err := g.getBlockIPs(sourceIPs)
+	candidateIPsToBlock, lastprio, err := g.getPrepareToBlockIPs(sourceIPs)
 	if err != nil {
 		return err
 	}
