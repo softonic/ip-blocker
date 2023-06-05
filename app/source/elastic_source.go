@@ -2,22 +2,14 @@ package source
 
 import (
 	"bytes"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
-	"sort"
 	"time"
-
-	"gopkg.in/yaml.v2"
-
-	"io/ioutil"
 
 	"k8s.io/klog"
 
-	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/softonic/ip-blocker/app"
+
+	elasticUtils "github.com/softonic/ip-blocker/app/source/utils"
 )
 
 var (
@@ -25,62 +17,30 @@ var (
 )
 
 type ElasticSource struct {
-	client    *elasticsearch.Client
-	threshold int
+	connection   *ElasticConnection  // client to connect to ElasticSearch
+	queryConfig  *ElasticQueryConfig // queries to execute in ElasticSearch
+	sourceConfig *SourceConfig       // source configuration (address, username, password, threshold)
 }
 
-type ElasticConfig struct {
-	Queries []struct {
-		Name                 string `yaml:"name"`
-		ElasticIndex         string `yaml:"elasticIndex"`
-		ElasticFieldtoSearch string `yaml:"elasticFieldtoSearch"`
-		QueryFile            string `yaml:"queryFile"`
-	} `yaml:"queries"`
-}
+// NewElasticSource returns a ElasticSource object
+func NewElasticSource(config *SourceConfig) (*ElasticSource, error) {
 
-func NewElasticSource(address string, username string, password string, namespace string, threshold int, cacert string) *ElasticSource {
-	return &ElasticSource{
-		client:    elasticSearchInit(address, username, password, cacert),
-		threshold: threshold,
-	}
-}
-
-func elasticSearchInit(address string, username string, password string, cacert string) *elasticsearch.Client {
-
-	var cert []byte
-
-	if cacert != "" {
-		cert, _ = ioutil.ReadFile(cacert)
-	}
-
-	cfg := elasticsearch.Config{
-		Addresses: []string{
-			address,
-		},
-		Username: username,
-		Password: password,
-		CACert:   cert,
-		Transport: &http.Transport{
-			MaxIdleConnsPerHost: 10,
-			TLSClientConfig: &tls.Config{
-				MinVersion:         tls.VersionTLS11,
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-
-	es, err := elasticsearch.NewClient(cfg)
+	connection, err := NewElasticConnection(config.Address, config.Username, config.Password, config.Threshold, config.CACert)
 	if err != nil {
-		klog.Errorf("\nError: %v", err)
-		os.Exit(1)
+		return nil, err
 	}
 
-	klog.Infof("Connecting to ES in address: %s", address)
+	queryConfig := &ElasticQueryConfig{}
+	err = queryConfig.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
 
-	klog.Infof("this is the ES version: %s", elasticsearch.Version)
-
-	return es
-
+	return &ElasticSource{
+		connection:   connection,
+		queryConfig:  queryConfig,
+		sourceConfig: config,
+	}, nil
 }
 
 // getElasticIndex returns the index name for the current day
@@ -97,155 +57,52 @@ func getElasticIndex(basename string) string {
 
 }
 
-// orderAndTrimIPs returns a slice of IPs ordered by count
-// limit the output to the top n
-// limit the output to count > threshold
-func orderAndTrimIPs(ipCounter map[string]int, maxCounter int) []app.IPCount {
-
-	var ips []app.IPCount
-	n := 10
-
-	for ip, count := range ipCounter {
-		if count > maxCounter {
-			ips = append(ips, app.IPCount{
-				IP:    ip,
-				Count: int32(count),
-			})
-		}
-	}
-
-	sort.Slice(ips, func(i, j int) bool {
-		return ips[i].Count > ips[j].Count
-	})
-
-	if len(ips) > n {
-		ips = ips[:n]
-	}
-
-	return ips
-
-}
-
-func elasticSearchQuery(client *elasticsearch.Client, index string, query *bytes.Reader) (map[string]interface{}, error) {
-
-	res, err := client.Search(
-		client.Search.WithIndex(index),
-		client.Search.WithBody(query),
-		client.Search.WithTrackTotalHits(true),
-		client.Search.WithPretty(),
-		client.Search.WithSize(10000),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-
-	if res.IsError() {
-		var e map[string]interface{}
-		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-			klog.Fatalf("Error parsing the respnse body: %s", err)
-		} else {
-			klog.Fatalf("[%s] %s: %s",
-				res.Status(),
-				e["error"].(map[string]interface{})["type"],
-				e["error"].(map[string]interface{})["reason"],
-			)
-
-		}
-	}
-
-	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-		klog.Fatalf("Error parsing the response body: %s", err)
-	}
-	klog.Infof(
-		"[%s] %d hits; took: %dms",
-		res.Status(),
-		int(r["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"].(float64)),
-		int(r["took"].(float64)),
-	)
-
-	//r = res.Body
-
-	return r, nil
-
-}
-
-func getQuery(file string) *bytes.Reader {
-
-	jsonFile, err := os.Open(file)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	defer jsonFile.Close()
-
-	queryString, _ := ioutil.ReadAll(jsonFile)
-
-	read := bytes.NewReader(queryString)
-
-	return read
-
-}
-
-func (s *ElasticSource) GetIPCount(interval int) []app.IPCount {
-
-	//data := make(map[interface{}]string)
-
-	var config ElasticConfig
-
-	yamlFile, err := ioutil.ReadFile("/etc/config/elastic-search-config.yaml")
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-	err = yaml.Unmarshal(yamlFile, &config)
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-
-	client := s.client
-
-	threshold := s.threshold
-
+// runQueryAndGetIPs ejecuta la consulta a ElasticSearch y retorna un mapa con la cuenta de las IPs.
+func (s *ElasticSource) runQueryAndGetIPs(indexName string, query *bytes.Reader, fieldToSearch string) (map[string]int, error) {
 	ipCounter := make(map[string]int)
 
+	r, err := elasticSearchQuery(s.connection.client, indexName, query)
+	if err != nil {
+		return nil, fmt.Errorf("error executing ElasticSearch query: %w", err)
+	}
+
+	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
+		ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[fieldToSearch].(map[string]interface{})["ip"].(string)
+		ipCounter[ips]++
+	}
+
+	return ipCounter, nil
+}
+
+// GetIPCount is a bussiness function to get the IPs from ElasticSearch with its count
+func (s *ElasticSource) GetIPCount(interval int) app.Result {
 	var listIPCandidates []app.IPCount
+	var resultError error
 
-	//loop over all queries
-
-	for _, query := range config.Queries {
-
-		var listIPs []app.IPCount
-
+	// loop over all queries
+	for _, query := range s.queryConfig.Queries {
 		todayIndexName := getElasticIndex(query.ElasticIndex)
-		read := getQuery(query.QueryFile)
+		read := elasticUtils.GetQueryFromFile(query.QueryFile)
 
-		r, err := elasticSearchQuery(client, todayIndexName, read)
+		ipCounter, err := s.runQueryAndGetIPs(todayIndexName, read, query.ElasticFieldtoSearch)
 		if err != nil {
-			klog.Errorf("\nError: %v", err)
-			os.Exit(1)
+			resultError = fmt.Errorf("failed to run query and get IPs: %w", err)
+			break
 		}
 
-		for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-			ips := hit.(map[string]interface{})["_source"].(map[string]interface{})[query.ElasticFieldtoSearch].(map[string]interface{})["ip"].(string)
-			ipCounter[ips]++
-		}
+		klog.Infof("This is the ipcounter: %v", ipCounter)
 
-		klog.Infof("This is the ipcounter: %d", ipCounter)
-
-		maxCounter := interval * threshold
-
+		maxCounter := interval * s.connection.threshold
 		klog.Infof("This is the counter: %d", maxCounter)
 
-		listIPs = orderAndTrimIPs(ipCounter, maxCounter)
-
+		listIPs := elasticUtils.OrderAndTrimIPs(ipCounter, maxCounter)
 		klog.Infof("These are the listIPs after orderAndTrim: %v", listIPs)
 
 		listIPCandidates = append(listIPCandidates, listIPs...)
-
 	}
 
-	return listIPCandidates
-
+	return app.Result{
+		IPCounts: listIPCandidates,
+		Error:    resultError,
+	}
 }

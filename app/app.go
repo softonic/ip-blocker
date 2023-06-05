@@ -10,12 +10,17 @@ import (
 )
 
 type Source interface {
-	GetIPCount(int) []IPCount
+	GetIPCount(int) Result
 }
 
 type Actor interface {
 	BlockIPs([]IPCount) error
 	UnBlockIPs() error
+}
+
+type Result struct {
+	IPCounts []IPCount
+	Error    error
 }
 
 type IPCount struct {
@@ -37,7 +42,7 @@ func NewApp(s Source, a Actor) *App {
 	}
 }
 
-func getIPsToChannel(listen chan []IPCount, source Source, interval int) {
+func getIPsToChannel(listen chan Result, source Source, interval int) {
 
 	for {
 		time.Sleep(time.Second * 60 * time.Duration(interval))
@@ -60,7 +65,7 @@ func (a *App) Start(intervalBlockTime int) {
 
 	klog.Infof("Starting daemon")
 
-	listen := make(chan []IPCount)
+	listen := make(chan Result)
 	exit := make(chan bool)
 
 	interrupt := make(chan os.Signal, 1)
@@ -71,8 +76,12 @@ func (a *App) Start(intervalBlockTime int) {
 
 	for {
 		select {
-		case sourceIPs := <-listen:
-			err := a.actor.BlockIPs(sourceIPs)
+		case result := <-listen:
+			if result.Error != nil {
+				klog.Errorf("\nError: %v", result.Error)
+				continue
+			}
+			err := a.actor.BlockIPs(result.IPCounts)
 			if err != nil {
 				klog.Errorf("\nError: %v", err)
 			}

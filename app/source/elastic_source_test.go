@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/softonic/ip-blocker/app"
+	elasticUtils "github.com/softonic/ip-blocker/app/source/utils"
 )
 
 func TestOrderAndTrimIPsMostCounts(t *testing.T) {
@@ -16,7 +17,7 @@ func TestOrderAndTrimIPsMostCounts(t *testing.T) {
 		"2.2.2.2": 30,
 	}
 
-	result := orderAndTrimIPs(ipCounter, threshold)
+	result := elasticUtils.OrderAndTrimIPs(ipCounter, threshold)
 
 	expectedBots := []app.IPCount{
 		{
@@ -50,7 +51,7 @@ func TestOrderAndTrimIPsNumberIPsToBlock(t *testing.T) {
 		"12.12.12.12": 31,
 	}
 
-	result := orderAndTrimIPs(ipCounter, threshold)
+	result := elasticUtils.OrderAndTrimIPs(ipCounter, threshold)
 
 	expectedBots := []app.IPCount{
 		{
