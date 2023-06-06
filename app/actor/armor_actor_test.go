@@ -3,6 +3,8 @@ package actor
 import (
 	"reflect"
 	"testing"
+
+	"github.com/softonic/ip-blocker/app/utils"
 )
 
 func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
@@ -33,9 +35,9 @@ func TestDetectWhichOfTheseIPsAreNotBlocked(t *testing.T) {
 		"2.2.2.2",
 	}
 
-	result := uniqueItems(elasticIPs, armorIPs)
+	result := utils.UniqueItems(elasticIPs, armorIPs)
 
-	result = removeDuplicateStr(result)
+	result = utils.RemoveDuplicateStr(result)
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expected)
@@ -71,9 +73,9 @@ func TestDetectWhichOfTheseIPsAreNotExcluded(t *testing.T) {
 		"2.2.2.2",
 	}
 
-	result := uniqueItems(elasticIPs, exceptionsIPs)
+	result := utils.UniqueItems(elasticIPs, exceptionsIPs)
 
-	result = removeDuplicateStr(result)
+	result = utils.RemoveDuplicateStr(result)
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Error actual = %v, and Expected = %v.", result, expected)

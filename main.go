@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "bytes"
+	"errors"
 	"flag"
 	_ "io/ioutil"
 	"os"
@@ -14,8 +15,8 @@ import (
 )
 
 var (
-	project, policy, namespace, cacert, excludeIPs string
-	ttlRules, threshold, intervalBlockTime         int
+	project, policy, cacert, excludeIPs    string
+	ttlRules, threshold, intervalBlockTime int
 )
 
 func init() {
@@ -25,12 +26,6 @@ func init() {
 func main() {
 
 	// GET THESE VARS FROM ENV
-
-	address := os.Getenv("ELASTIC_ADDRESS")
-
-	password := os.Getenv("ELASTIC_PASSWORD")
-
-	username := os.Getenv("ELASTIC_USERNAME")
 
 	flag.StringVar(&project, "project", "project", "kubernetes GCP project")
 	flag.StringVar(&policy, "policy", "default", "The firewall rule that we will modify")
@@ -42,11 +37,75 @@ func main() {
 
 	flag.Parse()
 
-	s := source.NewElasticSource(address, username, password, namespace, threshold, cacert)
-	a := actor.NewGCPArmorActor(project, policy, ttlRules, excludeIPs)
+	sourceConfig, err := getElasticSourceConfigFromEnv()
+	if err != nil {
+		klog.Fatalf("Failed to get config from env: %v", err)
+		os.Exit(1)
+	}
+
+	actorConfig, err := getActorConfigFromEnv()
+	if err != nil {
+		klog.Fatalf("Failed to get config from env: %v", err)
+		os.Exit(1)
+	}
+
+	// create the source. If cannot be created, exit
+	s, err := source.NewElasticSource(sourceConfig)
+	if err != nil {
+		klog.Fatalf("Failed to create ElasticSource: %v", err)
+		os.Exit(1)
+	}
+	// create the actor. If cannot be created, exit
+	a, err := actor.NewGCPArmorActor(actorConfig)
+	if err != nil {
+		klog.Fatalf("Failed to create GCPArmorActor: %v", err)
+		os.Exit(1)
+	}
 
 	application := app.NewApp(s, a)
 
 	application.Start(intervalBlockTime)
 
+}
+
+func getElasticSourceConfigFromEnv() (*source.SourceConfig, error) {
+	// This assumes you have a structure named Config in the app package that holds
+	// all the necessary configuration information.
+	config := &source.SourceConfig{}
+
+	config.Address = os.Getenv("ELASTIC_ADDRESS")
+	if config.Address == "" {
+		return nil, errors.New("ELASTIC_ADDRESS environment variable not set")
+	}
+	config.Password = os.Getenv("ELASTIC_PASSWORD")
+	if config.Address == "" {
+		return nil, errors.New("ELASTIC_ADDRESS environment variable not set")
+	}
+	config.Username = os.Getenv("ELASTIC_USERNAME")
+	if config.Address == "" {
+		return nil, errors.New("ELASTIC_ADDRESS environment variable not set")
+	}
+	config.Threshold = threshold
+	config.CACert = cacert
+
+	// Remember to check if the necessary env variables were set,
+	// returning an error if they weren't
+
+	return config, nil
+}
+
+func getActorConfigFromEnv() (*actor.ActorConfig, error) {
+	// This assumes you have a structure named Config in the app package that holds
+	// all the necessary configuration information.
+	config := &actor.ActorConfig{}
+
+	config.Project = project
+	config.Policy = policy
+	config.TTLRules = ttlRules
+	config.ExcludeIPs = excludeIPs
+
+	// Remember to check if the necessary env variables were set,
+	// returning an error if they weren't
+
+	return config, nil
 }
