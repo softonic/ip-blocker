@@ -4,6 +4,8 @@ metadata:
   name: {{ include "ip-blocker.fullname" . }}
   labels:
       {{- include "ip-blocker.labels" . | nindent 6 }}
+  annotations:
+    {{- toYaml .Values.annotations | nindent 8 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
