@@ -90,7 +90,7 @@ Final goal would be to someone to use this tool and be able to use other source 
 ![Diagram Flow](flow.jpg)
 
 
-
+```mermaid
     A[Start Golang Daemon] --> B(Initialize App, ElasticSource, and GCPArmorActor)
     B --> C(Start App)
     C -->|Run Goroutines| D1(Fetch IPs from Elasticsearch)
@@ -101,4 +101,4 @@ Final goal would be to someone to use this tool and be able to use other source 
     F1 --> F2(Unblock IPs using Google Cloud Armor)
     C --> G(Listen for Interrupt Signal)
     G --> H[Stop Golang Daemon]
-
+```
