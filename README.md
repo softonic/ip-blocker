@@ -91,8 +91,6 @@ Final goal would be to someone to use this tool and be able to use other source 
 
 
 
-graph LR
-
     A[Start Golang Daemon] --> B(Initialize App, ElasticSource, and GCPArmorActor)
     B --> C(Start App)
     C -->|Run Goroutines| D1(Fetch IPs from Elasticsearch)
