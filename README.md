@@ -90,7 +90,7 @@ Final goal would be to someone to use this tool and be able to use other source 
 ![Diagram Flow](flow.jpg)
 
 
-```
+
 graph LR
 
     A[Start Golang Daemon] --> B(Initialize App, ElasticSource, and GCPArmorActor)
@@ -103,4 +103,4 @@ graph LR
     F1 --> F2(Unblock IPs using Google Cloud Armor)
     C --> G(Listen for Interrupt Signal)
     G --> H[Stop Golang Daemon]
-```
+
